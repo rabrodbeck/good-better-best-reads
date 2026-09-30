@@ -5,7 +5,6 @@ import {
   Dna,
   ArrowRight,
   BookMarked,
-  Compass,
   ShieldCheck,
   Zap,
 } from "lucide-react";
@@ -23,8 +22,8 @@ export default function HomePage() {
   return (
     <div className="relative overflow-hidden">
       {/* Background Subtle Glows */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-      <div className="pointer-events-none absolute top-96 -right-40 -z-10 h-[400px] w-[600px] rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-125 w-200 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute top-96 -right-40 -z-10 h-100 w-150 rounded-full bg-emerald-500/10 blur-3xl" />
 
       {/* Hero Section */}
       <section className="container mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 lg:pt-24 lg:pb-28">
@@ -41,7 +40,7 @@ export default function HomePage() {
           {/* Main Title */}
           <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
             Good, better, best. <br />
-            <span className="bg-gradient-to-r from-primary via-primary/80 to-emerald-500 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-primary via-primary/80 to-emerald-500 bg-clip-text text-transparent">
               Never let your reading list rest.
             </span>
           </h1>
@@ -167,7 +166,7 @@ export default function HomePage() {
 
       {/* Taste Archetype Preview Showcase */}
       <section className="container mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <div className="rounded-3xl border border-primary/20 bg-gradient-to-b from-card/80 to-card/40 p-6 sm:p-10 backdrop-blur-md shadow-xl">
+        <div className="rounded-3xl border border-primary/20 bg-linear-to-b from-card/80 to-card/40 p-6 sm:p-10 backdrop-blur-md shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="max-w-md">
               <Badge variant="outline" className="mb-3 text-emerald-500 border-emerald-500/30">
