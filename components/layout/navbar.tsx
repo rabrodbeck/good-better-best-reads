@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { BookOpen, Sparkles, Dna, UploadCloud } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
