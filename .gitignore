@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local test data and personal reading exports
+test/fixtures/*.csv
+!test/fixtures/.gitkeep
