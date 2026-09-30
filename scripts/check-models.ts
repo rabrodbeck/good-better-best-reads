@@ -18,11 +18,12 @@ async function listModels() {
     return;
   }
 
-  console.log("✅ Available Models on your Key:");
-  const generateModels = (data.models || []).filter((m: any) =>
-    m.supportedGenerationMethods?.includes("generateContent")
+  console.log("📐 Available Embedding Models on your Key (supporting embedContent):");
+  const embedModels = (data.models || []).filter((m: any) =>
+    m.supportedGenerationMethods?.includes("embedContent")
   );
-  generateModels.forEach((m: any) => {
+  
+  embedModels.forEach((m: any) => {
     console.log(` - ${m.name.replace("models/", "")}`);
   });
 }
