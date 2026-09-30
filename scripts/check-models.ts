@@ -19,11 +19,16 @@ async function listModels() {
   }
 
   console.log("📐 Available Embedding Models on your Key (supporting embedContent):");
-  const embedModels = (data.models || []).filter((m: any) =>
+  interface ModelItem {
+    name: string;
+    supportedGenerationMethods?: string[];
+  }
+
+  const embedModels = (data.models || []).filter((m: ModelItem) =>
     m.supportedGenerationMethods?.includes("embedContent")
   );
-  
-  embedModels.forEach((m: any) => {
+
+  embedModels.forEach((m: ModelItem) => {
     console.log(` - ${m.name.replace("models/", "")}`);
   });
 }
