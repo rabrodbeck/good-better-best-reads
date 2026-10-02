@@ -129,6 +129,8 @@ export interface Database {
           user_id: string;
           archetype_name: string;
           archetype_summary: string;
+          preferred_pacing: string | null;
+          emotional_tone: string | null;
           taste_vector: number[] | null;
           top_tropes: string[];
           dealbreakers: string[];
@@ -139,6 +141,8 @@ export interface Database {
           user_id: string;
           archetype_name: string;
           archetype_summary: string;
+          preferred_pacing?: string | null;
+          emotional_tone?: string | null;
           taste_vector?: number[] | null;
           top_tropes?: string[];
           dealbreakers?: string[];
@@ -148,6 +152,8 @@ export interface Database {
           id?: string;
           archetype_name?: string;
           archetype_summary?: string;
+          preferred_pacing?: string | null;
+          emotional_tone?: string | null;
           taste_vector?: number[] | null;
           top_tropes?: string[];
           dealbreakers?: string[];

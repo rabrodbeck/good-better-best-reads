@@ -56,6 +56,104 @@ export async function POST(req: Request) {
                 .upsert(chunk, { onConflict: "isbn13", ignoreDuplicates: true });
         }
 
+        // 4. Ensure a user profile exists to link shelves and taste
+        let userId: string;
+        const { data: existingProfiles } = await supabase.from("profiles").select("id").limit(1);
+
+        if (existingProfiles && existingProfiles.length > 0) {
+            userId = existingProfiles[0].id;
+        } else {
+            const { data: usersData } = await supabase.auth.admin.listUsers();
+            if (usersData?.users && usersData.users.length > 0) {
+                userId = usersData.users[0].id;
+            } else {
+                const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+                    email: "ryan@goodbetterbestreads.local",
+                    password: "dev-password-12345",
+                    email_confirm: true,
+                    user_metadata: { display_name: "Ryan" },
+                });
+                if (createErr || !newUser.user) {
+                    throw new Error(createErr?.message || "Failed to create user");
+                }
+                userId = newUser.user.id;
+            }
+
+            await supabase.from("profiles").upsert({
+                id: userId,
+                email: "ryan@goodbetterbestreads.local",
+                display_name: "Ryan",
+            });
+        }
+
+        // Update profile archetype title
+        await supabase
+            .from("profiles")
+            .update({
+                taste_archetype: tasteProfile.archetype_name,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", userId);
+
+        // 5. Upsert Taste Profile & 768-dim Holistic Vector
+        await supabase
+            .from("taste_profiles")
+            .upsert(
+                {
+                    user_id: userId,
+                    archetype_name: tasteProfile.archetype_name,
+                    archetype_summary: tasteProfile.archetype_summary,
+                    preferred_pacing: tasteProfile.preferred_pacing,
+                    emotional_tone: tasteProfile.emotional_tone,
+                    taste_vector: tasteVector,
+                    top_tropes: tasteProfile.top_tropes,
+                    dealbreakers: tasteProfile.dealbreakers,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id" }
+            );
+
+        // 6. Map and upsert user shelves into 'user_books'
+        const { data: dbBooks } = await supabase
+            .from("books")
+            .select("id, title, author, isbn13");
+
+        if (dbBooks && dbBooks.length > 0) {
+            const byIsbn13 = new Map<string, string>();
+            const byTitleAuthor = new Map<string, string>();
+
+            for (const b of dbBooks) {
+                if (b.isbn13) byIsbn13.set(b.isbn13, b.id);
+                byTitleAuthor.set(`${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`, b.id);
+            }
+
+            const userBooksToUpsert = [];
+            for (const b of books) {
+                const bookId =
+                    (b.isbn13 && byIsbn13.get(b.isbn13)) ||
+                    byTitleAuthor.get(`${b.cleanTitle.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`);
+
+                if (bookId) {
+                    userBooksToUpsert.push({
+                        user_id: userId,
+                        book_id: bookId,
+                        shelf: b.shelf,
+                        rating: b.myRating > 0 ? b.myRating : null,
+                        date_read: b.dateRead,
+                        user_review: b.userReview,
+                        user_shelves: b.userShelves,
+                    });
+                }
+            }
+
+            for (let i = 0; i < userBooksToUpsert.length; i += CHUNK_SIZE) {
+                const chunk = userBooksToUpsert.slice(i, i + CHUNK_SIZE);
+                await supabase
+                    .from("user_books")
+                    .upsert(chunk, { onConflict: "user_id,book_id" });
+            }
+        }
+
         return NextResponse.json({
             success: true,
             stats,

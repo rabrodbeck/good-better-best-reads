@@ -1,10 +1,17 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { streamText, convertToModelMessages, createUIMessageStreamResponse, toUIMessageStream } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  toUIMessageStream,
+  isStepCount,
+} from "ai";
+import { createClient } from "@supabase/supabase-js";
 import { buildLibrarianSystemPrompt } from "@/services/librarian/prompt";
 import { lookupBookCoverTool } from "@/services/librarian/tools";
 import { TasteProfile } from "@/services/taste/schemas";
 
-export const maxDuration = 30; // Max streaming duration
+export const maxDuration = 60; // Allow enough time for multi-step book lookups
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +22,7 @@ export async function POST(req: Request) {
       return new Response("Missing Gemini API key", { status: 500 });
     }
 
-    // Fallback profile if user hasn't imported a CSV yet
+    // Default fallback profile if user hasn't imported a CSV yet
     const fallbackProfile: TasteProfile = {
       archetype_name: "The Inquisitive Explorer",
       preferred_pacing: "Propulsive & Engaging",
@@ -26,15 +33,58 @@ export async function POST(req: Request) {
       dealbreakers: ["Predictable Twists", "Shallow Characterization"],
     };
 
-    const activeProfile: TasteProfile = tasteProfile || fallbackProfile;
-    const system = buildLibrarianSystemPrompt(activeProfile, readBooks || []);
+    let activeProfile: TasteProfile = tasteProfile || fallbackProfile;
+    let activeReadBooks: string[] = readBooks || [];
 
+    // If client didn't supply tasteProfile or readBooks, dynamically query Supabase
+    if (!tasteProfile || !readBooks) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const { data: dbTaste } = await supabase
+          .from("taste_profiles")
+          .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (dbTaste) {
+          activeProfile = {
+            archetype_name: dbTaste.archetype_name,
+            archetype_summary: dbTaste.archetype_summary,
+            preferred_pacing: dbTaste.preferred_pacing || "Engaging & Dynamic",
+            emotional_tone: dbTaste.emotional_tone || "Atmospheric & Gripping",
+            top_tropes: dbTaste.top_tropes || [],
+            dealbreakers: dbTaste.dealbreakers || [],
+          };
+
+          const { data: userBooksData } = await supabase
+            .from("user_books")
+            .select("books(title)")
+            .eq("user_id", dbTaste.user_id)
+            .in("shelf", ["read", "did-not-finish"]);
+
+          if (userBooksData) {
+            activeReadBooks = userBooksData
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .map((ub: any) => ub.books?.title)
+              .filter(Boolean);
+          }
+        }
+      }
+    }
+
+    const system = buildLibrarianSystemPrompt(activeProfile, activeReadBooks);
     const google = createGoogleGenerativeAI({ apiKey });
 
     const result = streamText({
       model: google("gemini-2.5-flash"),
       system,
       messages: await convertToModelMessages(messages),
+      stopWhen: isStepCount(5), // <-- Allows multi-step tool execution for 3+ books
       tools: {
         lookup_book_cover: lookupBookCoverTool,
       },

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Sparkles, Bot, User, ArrowUp, RefreshCw, Zap } from "lucide-react";
@@ -18,6 +19,21 @@ const SUGGESTIONS = [
 
 export default function ChatPage() {
   const [input, setInput] = React.useState("");
+  const [profile, setProfile] = React.useState<{
+    archetype_name: string;
+    preferred_pacing?: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    fetch("/api/profile")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.tasteProfile) {
+          setProfile(data.tasteProfile);
+        }
+      })
+      .catch((err) => console.error("Could not load profile:", err));
+  }, []);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
@@ -64,10 +80,19 @@ export default function ChatPage() {
           </div>
         </div>
 
-        <Badge variant="outline" className="hidden sm:inline-flex border-emerald-500/30 text-emerald-500 gap-1 text-xs">
-          <Zap className="size-3" />
-          Dark & Clever Thrill-Seeker
-        </Badge>
+        {profile ? (
+          <Badge variant="outline" className="hidden sm:inline-flex border-emerald-500/30 text-emerald-500 gap-1 text-xs">
+            <Zap className="size-3" />
+            {profile.archetype_name}
+          </Badge>
+        ) : (
+          <Link href="/import">
+            <Badge variant="outline" className="hidden sm:inline-flex border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-colors gap-1 text-xs cursor-pointer">
+              <Sparkles className="size-3" />
+              Import CSV to personalize &rarr;
+            </Badge>
+          </Link>
+        )}
       </div>
 
       {/* Messages Scroll Area */}
