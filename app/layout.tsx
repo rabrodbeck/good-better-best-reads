@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/layout/providers";
@@ -14,10 +14,49 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#10b981",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://goodbetterbestreads.com"),
+  title: {
+    default: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
+    template: "%s | GoodBetterBestReads",
+  },
   description:
-    "Transform your reading history into an intelligent Personal Librarian with semantic taste matching and shareable Reading DNA.",
+    "Transform your Goodreads or StoryGraph reading history into an active Personal Librarian with semantic taste matching and a shareable Reading DNA card.",
+  applicationName: "GoodBetterBestReads",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "GBBReads",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "GoodBetterBestReads",
+    title: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
+    description:
+      "Transform your reading history into an active Personal Librarian and shareable Reading DNA.",
+    images: [
+      {
+        url: "/api/og/reading-dna",
+        width: 1200,
+        height: 630,
+        alt: "GoodBetterBestReads — Reading DNA",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
+    description:
+      "Transform your reading history into an active Personal Librarian and shareable Reading DNA.",
+    images: ["/api/og/reading-dna"],
+  },
 };
 
 export default function RootLayout({
