@@ -36,24 +36,58 @@ export async function POST(req: Request) {
         // 2. Generate 768-dim Vector Embedding
         const tasteVector = await generateTasteVector(tasteProfile);
 
-        // 3. Upsert books into the global 'books' catalog in chunks of 50
-        const catalogBooks = books.map((b) => ({
-            title: b.cleanTitle,
-            author: b.author,
-            isbn: b.isbn,
-            isbn13: b.isbn13,
-            page_count: b.pageCount,
-            published_year: b.yearPublished,
-            description: null,
-            genres: [],
-        }));
+        // 3. Upsert books into the global 'books' catalog with robust multi-field deduplication
+        // Fetch existing books to match by ISBN13, ISBN, or clean Title + Author
+        const { data: existingBooks } = await supabase
+            .from("books")
+            .select("id, title, author, isbn, isbn13");
+
+        const existingByIsbn13 = new Map<string, string>();
+        const existingByIsbn = new Map<string, string>();
+        const existingByTitleAuthor = new Map<string, string>();
+
+        for (const b of existingBooks || []) {
+            if (b.isbn13) existingByIsbn13.set(b.isbn13, b.id);
+            if (b.isbn) existingByIsbn.set(b.isbn, b.id);
+            existingByTitleAuthor.set(
+                `${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`,
+                b.id
+            );
+        }
+
+        // Filter only genuinely new books to insert
+        const newBooksToInsert = [];
+        const seenInBatch = new Set<string>();
+
+        for (const b of books) {
+            const key = `${b.cleanTitle.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`;
+            const exists =
+                (b.isbn13 && existingByIsbn13.has(b.isbn13)) ||
+                (b.isbn && existingByIsbn.has(b.isbn)) ||
+                existingByTitleAuthor.has(key) ||
+                seenInBatch.has(key);
+
+            if (!exists) {
+                seenInBatch.add(key);
+                newBooksToInsert.push({
+                    title: b.cleanTitle,
+                    author: b.author,
+                    isbn: b.isbn,
+                    isbn13: b.isbn13,
+                    page_count: b.pageCount,
+                    published_year: b.yearPublished,
+                    description: null,
+                    genres: [],
+                });
+            }
+        }
 
         const CHUNK_SIZE = 50;
-        for (let i = 0; i < catalogBooks.length; i += CHUNK_SIZE) {
-            const chunk = catalogBooks.slice(i, i + CHUNK_SIZE);
-            await supabase
-                .from("books")
-                .upsert(chunk, { onConflict: "isbn13", ignoreDuplicates: true });
+        if (newBooksToInsert.length > 0) {
+            for (let i = 0; i < newBooksToInsert.length; i += CHUNK_SIZE) {
+                const chunk = newBooksToInsert.slice(i, i + CHUNK_SIZE);
+                await supabase.from("books").insert(chunk);
+            }
         }
 
         // 4. Ensure a user profile exists to link shelves and taste
@@ -116,14 +150,16 @@ export async function POST(req: Request) {
         // 6. Map and upsert user shelves into 'user_books'
         const { data: dbBooks } = await supabase
             .from("books")
-            .select("id, title, author, isbn13");
+            .select("id, title, author, isbn, isbn13");
 
         if (dbBooks && dbBooks.length > 0) {
             const byIsbn13 = new Map<string, string>();
+            const byIsbn = new Map<string, string>();
             const byTitleAuthor = new Map<string, string>();
 
             for (const b of dbBooks) {
                 if (b.isbn13) byIsbn13.set(b.isbn13, b.id);
+                if (b.isbn) existingByIsbn.set(b.isbn, b.id);
                 byTitleAuthor.set(`${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`, b.id);
             }
 
@@ -131,6 +167,7 @@ export async function POST(req: Request) {
             for (const b of books) {
                 const bookId =
                     (b.isbn13 && byIsbn13.get(b.isbn13)) ||
+                    (b.isbn && byIsbn.get(b.isbn)) ||
                     byTitleAuthor.get(`${b.cleanTitle.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`);
 
                 if (bookId) {
