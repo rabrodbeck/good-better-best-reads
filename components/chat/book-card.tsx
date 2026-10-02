@@ -1,7 +1,8 @@
 "use client";
 
+import * as React from "react";
 import Image from "next/image";
-import { BookOpen, Calendar, FileText, CheckCircle2 } from "lucide-react";
+import { ImageOff, Calendar, FileText, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -22,12 +23,14 @@ export function BookCard({
   pageCount,
   rationale,
 }: BookCardProps) {
+  const [imgError, setImgError] = React.useState(false);
+
   return (
     <Card className="my-3 overflow-hidden border-primary/20 bg-card/60 backdrop-blur-xs transition-all hover:border-primary/40">
       <CardContent className="flex flex-col sm:flex-row gap-4 p-4">
         {/* Cover Image or Fallback */}
-        <div className="relative h-44 w-30 shrink-0 overflow-hidden rounded-lg bg-muted border border-border/60 shadow-xs flex items-center justify-center">
-          {coverUrl ? (
+        <div className="relative h-44 w-30 shrink-0 overflow-hidden rounded-lg bg-muted/60 border border-border/60 shadow-xs flex items-center justify-center">
+          {coverUrl && !imgError ? (
             <Image
               src={coverUrl}
               alt={`Cover of ${title}`}
@@ -35,12 +38,19 @@ export function BookCard({
               className="object-cover"
               sizes="120px"
               unoptimized
+              onError={() => setImgError(true)}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center p-2 text-center text-muted-foreground">
-              <BookOpen className="size-6 mb-1 opacity-50" />
-              <span className="text-[10px] font-medium leading-tight line-clamp-2">
+            <div className="flex flex-col items-center justify-center p-2.5 text-center text-muted-foreground h-full w-full bg-gradient-to-b from-card/80 via-muted/50 to-card/80">
+              <ImageOff className="size-5 mb-1.5 opacity-60 text-muted-foreground" />
+              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">
+                Cover Unavailable
+              </span>
+              <span className="text-[10px] font-bold text-foreground leading-tight line-clamp-2">
                 {title}
+              </span>
+              <span className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1">
+                {author}
               </span>
             </div>
           )}

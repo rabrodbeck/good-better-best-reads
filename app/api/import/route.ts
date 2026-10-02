@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { parseGoodreadsCsv } from "@/services/parser/goodreads-normalizer";
 import { analyzeTasteProfile } from "@/services/taste/taste-analyzer";
 import { generateTasteVector } from "@/services/taste/embedding-generator";
+import { enrichBookDetails } from "@/services/books/enrichment-service";
 
 export const maxDuration = 60; // Allow sufficient time for AI taste extraction
 
@@ -69,16 +70,39 @@ export async function POST(req: Request) {
 
             if (!exists) {
                 seenInBatch.add(key);
+
+                let coverUrl: string | null = null;
+                if (b.isbn13) {
+                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn13}-M.jpg?default=false`;
+                } else if (b.isbn) {
+                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn}-M.jpg?default=false`;
+                }
+
                 newBooksToInsert.push({
                     title: b.cleanTitle,
                     author: b.author,
                     isbn: b.isbn,
                     isbn13: b.isbn13,
+                    cover_url: coverUrl,
                     page_count: b.pageCount,
                     published_year: b.yearPublished,
                     description: null,
                     genres: [],
                 });
+            }
+        }
+
+        // For books without an ISBN, perform English-first title+author search
+        for (const book of newBooksToInsert) {
+            if (!book.cover_url) {
+                try {
+                    const enriched = await enrichBookDetails(book.title, book.author);
+                    if (enriched?.coverUrl) {
+                        book.cover_url = enriched.coverUrl;
+                    }
+                } catch {
+                    // Non-fatal if single search times out
+                }
             }
         }
 

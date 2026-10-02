@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   BookOpen,
+  ImageOff,
   Search,
   Star,
   Calendar,
@@ -50,6 +51,50 @@ interface LibraryStats {
 
 type ShelfFilter = "all" | "read" | "to-read" | "currently-reading";
 type SortOption = "rating-desc" | "title-asc" | "author-asc" | "date-read-desc";
+
+function LibraryBookCover({
+  coverUrl,
+  title,
+  author,
+  priority,
+}: {
+  coverUrl?: string | null;
+  title: string;
+  author: string;
+  priority?: boolean;
+}) {
+  const [imgError, setImgError] = React.useState(false);
+
+  if (coverUrl && !imgError) {
+    return (
+      <Image
+        src={coverUrl}
+        alt={`Cover of ${title}`}
+        fill
+        priority={priority}
+        className="object-cover transition-transform group-hover:scale-105 duration-200"
+        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+        unoptimized
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="p-2.5 text-center flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-card/90 via-muted/40 to-card/90">
+      <ImageOff className="size-5 text-muted-foreground/60 mb-1.5" />
+      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">
+        Cover Unavailable
+      </span>
+      <span className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">
+        {title}
+      </span>
+      <span className="text-[9px] text-muted-foreground mt-1 line-clamp-1">
+        {author}
+      </span>
+    </div>
+  );
+}
 
 export default function LibraryPage() {
   const [books, setBooks] = React.useState<BookItem[]>([]);
@@ -383,29 +428,14 @@ export default function LibraryPage() {
             >
               <CardContent className="p-3 flex flex-col h-full justify-between">
                 <div>
-                  {/* Book Cover Image / Styled Spine */}
+                  {/* Book Cover Image / Styled Fallback */}
                   <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs mb-2.5 flex items-center justify-center">
-                    {book.cover_url ? (
-                      <Image
-                        src={book.cover_url}
-                        alt={`Cover of ${book.title}`}
-                        fill
-                        priority={index < 6}
-                        className="object-cover transition-transform group-hover:scale-105 duration-200"
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="p-3 text-center flex flex-col items-center justify-center h-full bg-gradient-to-b from-card via-muted/40 to-card">
-                        <BookOpen className="size-6 text-muted-foreground/60 mb-2" />
-                        <span className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">
-                          {book.title}
-                        </span>
-                        <span className="text-[9px] text-muted-foreground mt-1 line-clamp-1">
-                          {book.author}
-                        </span>
-                      </div>
-                    )}
+                    <LibraryBookCover
+                      coverUrl={book.cover_url}
+                      title={book.title}
+                      author={book.author}
+                      priority={index < 6}
+                    />
 
                     {/* Shelf Overlay Tag */}
                     <div className="absolute top-1.5 left-1.5">

@@ -18,7 +18,15 @@ function getCoverUrl(coverId?: number): string | null {
 }
 
 /**
- * Fetches high-res cover, blurb, and genres from Open Library (100% Free, No Auth)
+ * Strips series tags like "(North Falls, #1)" or "(Vicious Lost Boys Book 2)" from book titles
+ */
+export function cleanTitleForSearch(title: string): string {
+  return title.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+}
+
+/**
+ * Fetches verified cover, blurb, and publication metadata from Open Library.
+ * Prioritizes direct ISBN lookup, then falls back to English-first Title + Author edition search.
  */
 export async function enrichBookDetails(
   title: string,
@@ -54,9 +62,10 @@ export async function enrichBookDetails(
       }
     }
 
-    // 2. Fallback: Search by clean Title and Author
-    const query = encodeURIComponent(`${title} ${author}`);
-    searchUrl = `https://openlibrary.org/search.json?q=${query}&limit=1`;
+    // 2. Fallback: Search by clean Title and Author with English-first edition prioritization
+    const cleanTitle = cleanTitleForSearch(title);
+    const query = encodeURIComponent(`${cleanTitle} ${author}`);
+    searchUrl = `https://openlibrary.org/search.json?q=${query}&fields=key,title,author_name,cover_i,language,editions&limit=3`;
     const searchRes = await fetch(searchUrl, {
       headers: { "User-Agent": "GoodBetterBestReads/1.0" },
     });
@@ -68,11 +77,20 @@ export async function enrichBookDetails(
 
     const doc = searchData.docs[0];
 
+    // Inspect child editions to prioritize an English ('eng') cover over foreign translations
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const editions: any[] = doc.editions?.docs || [];
+    const engEdition = editions.find(
+      (e) => e.cover_i && (e.language?.includes("eng") || e.language?.includes("en"))
+    );
+
+    const coverId = engEdition?.cover_i || doc.cover_i;
+
     return {
       title: doc.title || title,
       author: doc.author_name?.[0] || author,
-      coverUrl: getCoverUrl(doc.cover_i),
-      description: null, // Detailed work description requires a secondary fetch if needed
+      coverUrl: getCoverUrl(coverId),
+      description: null,
       genres: (doc.subject || []).slice(0, 5),
       pageCount: doc.number_of_pages_median || null,
       publishedYear: doc.first_publish_year || null,
