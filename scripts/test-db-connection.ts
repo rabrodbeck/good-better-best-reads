@@ -35,7 +35,11 @@ async function run() {
     process.exit(1);
   }
 
-  console.log("✅ 'books' table exists and is accessible.");
+  const { count } = await supabase
+    .from("books")
+    .select("*", { count: "exact", head: true });
+
+  console.log(`✅ 'books' table exists and is accessible. Total stored books: ${count}`);
 
   // Test 2: Query the taste_profiles table
   const { data: taste, error: tasteError } = await supabase
