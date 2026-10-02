@@ -1,6 +1,6 @@
 # GoodBetterBestReads: Project Specification & Architecture Brief
 
-> *"Good, better, best. Never let it rest. 'Til your good is better and your better is best!"*  
+> *"Good, better, best. Never let it rest. 'Til your good gets better and your better gets best!"*  
 > — Chicago Bears team motto & product philosophy.
 
 ---

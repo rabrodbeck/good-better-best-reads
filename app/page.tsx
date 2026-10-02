@@ -86,8 +86,8 @@ export default function HomePage() {
           {/* Bears Motto Banner */}
           <div className="mt-14 w-full max-w-2xl rounded-2xl border border-border/60 bg-card/60 p-4 sm:p-5 backdrop-blur-sm">
             <blockquote className="text-xs sm:text-sm italic text-muted-foreground">
-              &ldquo;Good, better, best. Never let it rest. &apos;Til your good is
-              better and your better is best!&rdquo;
+              &ldquo;Good, better, best. Never let it rest. &apos;Til your good gets
+              better and your better gets best!&rdquo;
             </blockquote>
             <div className="mt-2 text-[11px] font-semibold tracking-wider uppercase text-primary">
               — Chicago Bears team motto & product philosophy
