@@ -7,6 +7,7 @@ import {
   isStepCount,
 } from "ai";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { buildLibrarianSystemPrompt } from "@/services/librarian/prompt";
 import { lookupBookCoverTool } from "@/services/librarian/tools";
 import { TasteProfile } from "@/services/taste/schemas";
@@ -44,12 +45,41 @@ export async function POST(req: Request) {
       if (supabaseUrl && supabaseKey) {
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        const { data: dbTaste } = await supabase
+        let userId: string | undefined;
+        try {
+          const serverClient = await createServerClient();
+          const {
+            data: { user },
+          } = await serverClient.auth.getUser();
+          if (user) {
+            userId = user.id;
+          }
+        } catch {
+          // Unauthenticated
+        }
+
+        let tasteQuery = supabase
           .from("taste_profiles")
-          .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers")
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers");
+
+        if (userId) {
+          tasteQuery = tasteQuery.eq("user_id", userId);
+        } else {
+          tasteQuery = tasteQuery.order("updated_at", { ascending: false }).limit(1);
+        }
+
+        let { data: dbTaste } = await tasteQuery.maybeSingle();
+
+        // Fallback to latest global if user doesn't have a taste profile yet
+        if (!dbTaste && userId) {
+          const { data: fallbackTaste } = await supabase
+            .from("taste_profiles")
+            .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers")
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          dbTaste = fallbackTaste;
+        }
 
         if (dbTaste) {
           activeProfile = {

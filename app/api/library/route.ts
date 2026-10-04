@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -7,22 +8,38 @@ export async function GET() {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createAdminClient(supabaseUrl, supabaseKey);
 
-    // 1. Find the latest active user
-    const { data: latestTaste } = await supabase
-      .from("taste_profiles")
-      .select("user_id")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 1. Check if user is authenticated via session cookies
+    let userId: string | undefined;
+    try {
+      const serverClient = await createServerClient();
+      const {
+        data: { user },
+      } = await serverClient.auth.getUser();
+      if (user) {
+        userId = user.id;
+      }
+    } catch {
+      // Unauthenticated session
+    }
 
-    let userId = latestTaste?.user_id;
-
+    // Fallback: If not logged in, use the latest active profile (e.g. for preview/demo)
     if (!userId) {
-      const { data: usersData } = await supabase.auth.admin.listUsers();
-      if (usersData?.users && usersData.users.length > 0) {
-        userId = usersData.users[0].id;
+      const { data: latestTaste } = await supabase
+        .from("taste_profiles")
+        .select("user_id")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      userId = latestTaste?.user_id;
+
+      if (!userId) {
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        if (usersData?.users && usersData.users.length > 0) {
+          userId = usersData.users[0].id;
+        }
       }
     }
 

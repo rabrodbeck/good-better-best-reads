@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, Sparkles, Dna, UploadCloud } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { AuthButton } from "./auth-button";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
@@ -49,13 +50,14 @@ export function Navbar() {
         </nav>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-3">
-          <Link href="/import">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <Link href="/import" className="hidden sm:inline-flex">
             <Button size="sm" className="gap-1.5">
               <UploadCloud className="size-4" />
               <span>Import CSV</span>
             </Button>
           </Link>
+          <AuthButton />
           <ThemeToggle />
         </div>
       </div>

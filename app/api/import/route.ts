@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { parseGoodreadsCsv } from "@/services/parser/goodreads-normalizer";
 import { analyzeTasteProfile } from "@/services/taste/taste-analyzer";
 import { generateTasteVector } from "@/services/taste/embedding-generator";
@@ -115,33 +116,48 @@ export async function POST(req: Request) {
         }
 
         // 4. Ensure a user profile exists to link shelves and taste
-        let userId: string;
-        const { data: existingProfiles } = await supabase.from("profiles").select("id").limit(1);
+        let userId: string | undefined;
 
-        if (existingProfiles && existingProfiles.length > 0) {
-            userId = existingProfiles[0].id;
-        } else {
-            const { data: usersData } = await supabase.auth.admin.listUsers();
-            if (usersData?.users && usersData.users.length > 0) {
-                userId = usersData.users[0].id;
-            } else {
-                const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
-                    email: "ryan@goodbetterbestreads.local",
-                    password: "dev-password-12345",
-                    email_confirm: true,
-                    user_metadata: { display_name: "Ryan" },
-                });
-                if (createErr || !newUser.user) {
-                    throw new Error(createErr?.message || "Failed to create user");
-                }
-                userId = newUser.user.id;
+        try {
+            const serverClient = await createServerClient();
+            const {
+                data: { user },
+            } = await serverClient.auth.getUser();
+            if (user) {
+                userId = user.id;
             }
+        } catch {
+            // Not authenticated
+        }
 
-            await supabase.from("profiles").upsert({
-                id: userId,
-                email: "ryan@goodbetterbestreads.local",
-                display_name: "Ryan",
-            });
+        if (!userId) {
+            const { data: existingProfiles } = await supabase.from("profiles").select("id").limit(1);
+
+            if (existingProfiles && existingProfiles.length > 0) {
+                userId = existingProfiles[0].id;
+            } else {
+                const { data: usersData } = await supabase.auth.admin.listUsers();
+                if (usersData?.users && usersData.users.length > 0) {
+                    userId = usersData.users[0].id;
+                } else {
+                    const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+                        email: "ryan@goodbetterbestreads.local",
+                        password: "dev-password-12345",
+                        email_confirm: true,
+                        user_metadata: { display_name: "Ryan" },
+                    });
+                    if (createErr || !newUser.user) {
+                        throw new Error(createErr?.message || "Failed to create user");
+                    }
+                    userId = newUser.user.id;
+                }
+
+                await supabase.from("profiles").upsert({
+                    id: userId,
+                    email: "ryan@goodbetterbestreads.local",
+                    display_name: "Ryan",
+                });
+            }
         }
 
         // Update profile archetype title
