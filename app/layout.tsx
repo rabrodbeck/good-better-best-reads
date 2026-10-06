@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://goodbetterbestreads.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://goodbetterbestreads.vercel.app"),
   title: {
     default: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
     template: "%s | GoodBetterBestReads",

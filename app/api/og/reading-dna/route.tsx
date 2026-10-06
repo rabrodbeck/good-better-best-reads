@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -24,14 +25,34 @@ export async function GET(req: Request) {
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
       if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const supabase = createAdminClient(supabaseUrl, supabaseKey);
 
-        const { data: dbTaste } = await supabase
+        const requestedUserId = searchParams.get("userId") || searchParams.get("user");
+        let targetUserId = requestedUserId || undefined;
+
+        if (!targetUserId) {
+          try {
+            const serverClient = await createServerClient();
+            const {
+              data: { user },
+            } = await serverClient.auth.getUser();
+            if (user) targetUserId = user.id;
+          } catch {
+            // Unauthenticated
+          }
+        }
+
+        let tasteQuery = supabase
           .from("taste_profiles")
-          .select("archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, user_id")
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .select("archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, user_id");
+
+        if (targetUserId) {
+          tasteQuery = tasteQuery.eq("user_id", targetUserId);
+        } else {
+          tasteQuery = tasteQuery.order("updated_at", { ascending: false }).limit(1);
+        }
+
+        const { data: dbTaste } = await tasteQuery.maybeSingle();
 
         if (dbTaste) {
           archetype = dbTaste.archetype_name;
@@ -362,13 +383,19 @@ export async function GET(req: Request) {
             }}
           >
             <span>AI Taste Vector: 768 Dimensions (Gemini Matryoshka)</span>
-            <span style={{ fontWeight: 600, color: "#9ca3af" }}>goodbetterbestreads.com</span>
+            <span style={{ fontWeight: 600, color: "#9ca3af" }}>goodbetterbestreads.vercel.app</span>
           </div>
         </div>
       ),
       {
         width: 1200,
         height: 630,
+        headers:
+          searchParams.get("download") === "1"
+            ? {
+                "Content-Disposition": `attachment; filename="reading-dna-${archetype.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png"`,
+              }
+            : undefined,
       }
     );
   } catch (error) {

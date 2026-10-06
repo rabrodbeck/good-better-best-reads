@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Dna,
   Sparkles,
@@ -12,14 +13,18 @@ import {
   Download,
   Share2,
   Check,
+  Copy,
   ArrowRight,
   BookOpen,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface ProfileData {
+  user_id?: string;
   archetype_name: string;
   archetype_summary: string;
   preferred_pacing?: string;
@@ -33,14 +38,20 @@ interface StatsData {
   readCount: number;
 }
 
-export default function ReadingDnaPage() {
+function ReadingDnaContent() {
+  const searchParams = useSearchParams();
+  const userParam = searchParams.get("user") || searchParams.get("userId");
+
   const [profile, setProfile] = React.useState<ProfileData | null>(null);
   const [stats, setStats] = React.useState<StatsData>({ totalBooks: 0, readCount: 0 });
   const [loading, setLoading] = React.useState(true);
   const [copied, setCopied] = React.useState(false);
+  const [downloading, setDownloading] = React.useState(false);
+  const [downloadSuccess, setDownloadSuccess] = React.useState(false);
 
   React.useEffect(() => {
-    fetch("/api/profile")
+    const url = userParam ? `/api/profile?user=${encodeURIComponent(userParam)}` : "/api/profile";
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         if (data?.tasteProfile) {
@@ -52,32 +63,93 @@ export default function ReadingDnaPage() {
       })
       .catch((err) => console.error("Could not load DNA profile:", err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [userParam]);
+
+  const getShareUrl = () => {
+    if (typeof window === "undefined") return "";
+    const origin = window.location.origin;
+    const targetId = userParam || profile?.user_id;
+    return targetId ? `${origin}/dna?user=${targetId}` : `${origin}/dna`;
+  };
 
   const handleCopyLink = async () => {
-    if (typeof window === "undefined") return;
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `${profile?.archetype_name} — My Reading DNA`,
-          text: `Check out my verified Reading DNA on GoodBetterBestReads: ${profile?.archetype_name}`,
-          url: window.location.href,
-        });
+      const url = getShareUrl();
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
       } else {
-        await navigator.clipboard.writeText(window.location.href);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        const input = document.createElement("input");
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
       }
-    } catch {
-      // User cancelled share
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      console.error("Copy link error:", err);
     }
   };
 
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = "/api/og/reading-dna";
-    link.download = `reading-dna-${profile?.archetype_name.toLowerCase().replace(/\s+/g, "-") || "card"}.png`;
-    link.click();
+  const handleNativeShare = async () => {
+    const url = getShareUrl();
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: `${profile?.archetype_name || "Reading DNA"} — GoodBetterBestReads`,
+          text: `Check out my verified Reading DNA on GoodBetterBestReads: ${profile?.archetype_name || "Reader Profile"}`,
+          url,
+        });
+      } catch {
+        // User dismissed native share sheet
+      }
+    } else {
+      await handleCopyLink();
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      const targetId = userParam || profile?.user_id;
+      const endpoint = targetId
+        ? `/api/og/reading-dna?userId=${encodeURIComponent(targetId)}&download=1`
+        : `/api/og/reading-dna?download=1`;
+
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error("Image download request failed");
+
+      const blob = await res.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+
+      const slug =
+        profile?.archetype_name
+          ?.toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "card";
+      link.download = `reading-dna-${slug}.png`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+    } catch (err) {
+      console.error("Download failed:", err);
+      // Fallback: direct window open
+      const targetId = userParam || profile?.user_id;
+      window.open(
+        `/api/og/reading-dna${targetId ? `?userId=${encodeURIComponent(targetId)}` : ""}`,
+        "_blank"
+      );
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading) {
@@ -112,8 +184,27 @@ export default function ReadingDnaPage() {
     );
   }
 
+  const ogCardUrl = `/api/og/reading-dna${
+    userParam || profile.user_id ? `?userId=${encodeURIComponent(userParam || profile.user_id || "")}` : ""
+  }`;
+
   return (
     <div className="container mx-auto flex max-w-5xl flex-col px-4 py-8 sm:py-12">
+      {/* Toast Notification */}
+      {copied && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-card/95 px-4 py-3 text-xs font-semibold text-emerald-500 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <Check className="size-4 text-emerald-500" />
+          <span>Shareable link copied to clipboard!</span>
+        </div>
+      )}
+
+      {downloadSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-card/95 px-4 py-3 text-xs font-semibold text-emerald-500 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <Download className="size-4 text-emerald-500" />
+          <span>Reading DNA card downloaded (1200×630 PNG)!</span>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/40 pb-6 mb-8">
         <div>
@@ -134,18 +225,46 @@ export default function ReadingDnaPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button onClick={handleCopyLink} variant="outline" size="sm" className="gap-1.5">
-            {copied ? <Check className="size-4 text-emerald-500" /> : <Share2 className="size-4" />}
-            <span>{copied ? "Copied Link!" : "Share DNA"}</span>
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={handleCopyLink}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs font-medium"
+          >
+            {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+            <span>{copied ? "Copied!" : "Copy Link"}</span>
           </Button>
-          <Button onClick={handleDownload} variant="outline" size="sm" className="gap-1.5">
-            <Download className="size-4" />
-            <span>Download PNG</span>
+
+          <Button
+            onClick={handleNativeShare}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs font-medium"
+          >
+            <Share2 className="size-3.5" />
+            <span>Share</span>
           </Button>
+
+          <Button
+            onClick={handleDownload}
+            disabled={downloading}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs font-medium"
+          >
+            {downloading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Download className="size-3.5" />
+            )}
+            <span>{downloading ? "Saving PNG..." : "Download PNG"}</span>
+          </Button>
+
           <Link href="/chat">
-            <Button size="sm" className="gap-1.5 font-semibold">
-              <Sparkles className="size-4" />
+            <Button size="sm" className="gap-1.5 font-semibold text-xs">
+              <Sparkles className="size-3.5" />
               <span>Ask Librarian</span>
             </Button>
           </Link>
@@ -239,7 +358,7 @@ export default function ReadingDnaPage() {
           </CardContent>
         </Card>
 
-        {/* Right Col: Shelf Stats & Card Preview */}
+        {/* Right Col: Shelf Stats & Social Card Preview */}
         <div className="space-y-6">
           {/* Library Numbers */}
           <Card className="border-border/60 bg-card/60 backdrop-blur-xs shadow-sm">
@@ -274,23 +393,34 @@ export default function ReadingDnaPage() {
           <Card className="border-border/60 bg-card/60 backdrop-blur-xs overflow-hidden shadow-sm">
             <div className="p-4 border-b border-border/40 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Social Card Preview (1200×630)
+                Social Card (1200 × 630)
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDownload}
-                className="h-7 text-xs gap-1 px-2 text-primary"
-              >
-                <Download className="size-3" />
-                PNG
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="h-7 text-xs gap-1 px-2 text-primary"
+                >
+                  <Download className="size-3" />
+                  <span>{downloading ? "Saving..." : "PNG"}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open(ogCardUrl, "_blank")}
+                  className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLink className="size-3" />
+                </Button>
+              </div>
             </div>
             <div className="p-3 bg-muted/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/api/og/reading-dna"
-                alt="Reading DNA Social Card"
+                src={ogCardUrl}
+                alt="Reading DNA Social Card Preview"
                 className="rounded-lg border border-border/60 shadow-md w-full aspect-[1200/630] object-cover"
               />
             </div>
@@ -298,5 +428,22 @@ export default function ReadingDnaPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReadingDnaPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="container mx-auto flex min-h-[60vh] max-w-4xl flex-col items-center justify-center p-6">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary animate-pulse">
+            <Dna className="size-6 animate-spin" />
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">Loading Reading DNA...</p>
+        </div>
+      }
+    >
+      <ReadingDnaContent />
+    </React.Suspense>
   );
 }
