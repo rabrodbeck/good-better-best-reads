@@ -18,12 +18,14 @@ import {
   Plus,
   Check,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddBookModal, AddedBookItem } from "@/components/library/add-book-modal";
+import { ExportModal } from "@/components/library/export-modal";
 
 interface BookItem {
   id: string;
@@ -201,8 +203,9 @@ export default function LibraryPage() {
   const [books, setBooks] = React.useState<BookItem[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Manual Add Modal & Notification State
+  // Manual Add Modal, Export Modal & Notification State
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   // Filters & Search
@@ -421,35 +424,6 @@ export default function LibraryPage() {
       });
   }, [books, activeShelf, minRating, search, sortBy]);
 
-  const getShelfBadge = (shelf: BookItem["shelf"]) => {
-    switch (shelf) {
-      case "read":
-        return (
-          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[10px]">
-            Read
-          </Badge>
-        );
-      case "currently-reading":
-        return (
-          <Badge variant="outline" className="border-amber-500/30 text-amber-400 bg-amber-500/10 text-[10px]">
-            Reading Now
-          </Badge>
-        );
-      case "to-read":
-        return (
-          <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/10 text-[10px]">
-            Want to Read
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="text-[10px]">
-            {shelf}
-          </Badge>
-        );
-    }
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto flex min-h-[60vh] max-w-6xl flex-col items-center justify-center p-6">
@@ -526,6 +500,16 @@ export default function LibraryPage() {
           >
             <Plus className="size-4" />
             <span>Add Book</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsExportModalOpen(true)}
+            className="gap-1.5 font-semibold"
+          >
+            <Download className="size-4" />
+            <span>Export</span>
           </Button>
 
           <Link href="/chat">
@@ -777,6 +761,17 @@ export default function LibraryPage() {
         onOpenChange={setIsAddModalOpen}
         onBookAdded={handleBookAdded}
         existingBookTitles={existingBookTitles}
+      />
+
+      {/* Library Export Modal */}
+      <ExportModal
+        open={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        totalBooks={books.length}
+        onExportSuccess={(fmt) => {
+          setToastMessage(`Exported library as .${fmt}!`);
+          setTimeout(() => setToastMessage(null), 3000);
+        }}
       />
 
       {/* Toast Alert Notification */}

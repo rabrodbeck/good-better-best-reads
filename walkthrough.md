@@ -1,47 +1,39 @@
-# Walkthrough: In-App Shelf Movement & Real-Time Rating Controls (Issue #2)
+# Walkthrough: Library Export to CSV/JSON (Issue #5)
 
-We have implemented in-app shelf movement and real-time rating controls for GoodBetterBestReads, allowing readers to reorganize their shelves and rate books directly from each card on `/library` with zero-latency optimistic updates and server persistence.
+We have implemented complete data portability for GoodBetterBestReads, giving readers one-click exports of their entire book catalog, reading logs, ratings, and AI Taste Profile in both industry-standard CSV (Goodreads/StoryGraph compatible) and full JSON backup formats.
 
 ---
 
 ## What Was Built
 
-### 1. Dedicated PATCH API Endpoint
-- **Location:** [`app/api/library/route.ts`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/api/library/route.ts)
+### 1. Dedicated Export Route
+- **Location:** [`app/api/library/export/route.ts`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/api/library/export/route.ts)
 - **Features:**
-  - `PATCH /api/library`:
-    - Authenticates the current user session (with graceful active profile fallback for local development).
-    - Accepts `{ id?, book_id?, shelf?, rating?, date_read?, user_review? }`.
-    - Updates `shelf`, `user_shelves`, `rating` (clamped 1–5 or cleared to `null`), `date_read`, and `updated_at` in the Supabase `user_books` table.
-    - If moved to the `read` shelf without an explicit finished date, automatically records the current date.
-    - Returns the updated book object formatted for immediate client synchronization.
+  - `GET /api/library/export?format=csv`:
+    - Queries all books cataloged by the authenticated user across `user_books` and `books`.
+    - Formats all rows using official Goodreads export column definitions (`Book Id`, `Title`, `Author`, `ISBN`, `ISBN13`, `My Rating`, `Number of Pages`, `Year Published`, `Date Read`, `Date Added`, `Exclusive Shelf`, `My Review`, `Read Count`, etc.).
+    - Serializes via `Papa.unparse` with proper quoting and escaping.
+    - Sends `Content-Type: text/csv; charset=utf-8` and dynamic `Content-Disposition` attachment filename: `goodbetterbestreads-library-YYYY-MM-DD.csv`.
+    - 100% compatible for instant import into **Goodreads** and **StoryGraph**.
+  - `GET /api/library/export?format=json`:
+    - Generates a full archive containing user details, reading goals, current streaks, comprehensive book metadata (genres, descriptions, cover URLs, notes), and the user's complete **768-dimensional Reading Taste Archetype** (archetype name, summary, pacing, tone, loved tropes, dealbreakers).
+    - Sends `Content-Type: application/json; charset=utf-8` with filename `goodbetterbestreads-library-YYYY-MM-DD.json`.
 
-### 2. Interactive Shelf Selector on Every Book Card
-- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx) (`ShelfSelector`)
+### 2. Export Dialog Modal
+- **Location:** [`components/library/export-modal.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/components/library/export-modal.tsx)
 - **Features:**
-  - Replaced the static overlay badge with an interactive dropdown selector with chevron indicator.
-  - Matches the shelf's color palette:
-    - **Want to Read:** Blue badge
-    - **Reading Now:** Amber badge
-    - **Read:** Emerald badge
-    - **Did Not Finish:** Rose badge
-  - Selecting any shelf instantly updates the card and triggers optimistic UI updates with immediate toast feedback (e.g. `Moved "Dune" to Read!`).
-  - Automatically reverts to previous state if a network error occurs.
+  - Built with `@/components/ui/dialog`.
+  - Displays current library book count badge and data portability explanation.
+  - Two interactive export cards:
+    1. **Standard CSV File:** Highlights Goodreads & StoryGraph compatibility.
+    2. **Complete JSON Archive:** Highlights full backup + AI Taste DNA.
+  - Direct browser blob download trigger with loading spinners and auto-closing.
 
-### 3. Interactive 1–5 Star Rating Controls on Every Book Card
-- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx) (`InteractiveStarRating`)
+### 3. Library Page Header Integration
+- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx)
 - **Features:**
-  - Replaced static text and non-interactive stars with a responsive star rating bar.
-  - Hover previews fill up to the hovered star with dynamic rating counters (`4★`).
-  - Clicking any star (1–5) instantly saves the rating.
-  - Clicking the currently active rating clears/unrates the book.
-  - Rating an unread book automatically moves it to the **Read** shelf, matching standard reader expectations.
-
-### 4. Fully Reactive Real-Time Stats
-- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx) (`stats`)
-- **Features:**
-  - Converted library statistics into a reactive `useMemo` computation derived directly from the active `books` state.
-  - Whenever a book changes shelf or rating, the top metrics ribbon (Total, Read & Rated, Want to Read, Average Rating) and shelf filter tabs (`All`, `Read`, `Want to Read`, `Reading`) update instantaneously with **zero latency**.
+  - Added sleek **"Export"** button (`Download` icon) in the header navigation bar next to "Add Book" and "Ask Personal Librarian".
+  - Shows instant toast notification on completion: `Exported library as .csv!` or `Exported library as .json!`.
 
 ---
 
@@ -52,17 +44,18 @@ We have implemented in-app shelf movement and real-time rating controls for Good
    - Result: Passed with **0 errors**.
 2. **Next.js Production Build:**
    - Command: `npm run build`
-   - Result: Passed with code `0`. All 18 static & dynamic routes compiled and optimized cleanly.
+   - Result: Passed with code `0`. All 18 routes compiled and optimized, including `/api/library/export`.
+3. **CSV Serialization Test:**
+   - Verified that `Papa.unparse` produces exact Goodreads-formatted rows with proper date formatting (`YYYY/MM/DD`), ISBN encapsulation (`="978..."`), and rating normalization.
 
 ---
 
 ## Suggested Commit Message (For User)
 
 ```git
-feat(library): in-app shelf movement and real-time rating controls (Closes #2)
+feat(library): export library and shelves to CSV/JSON (Closes #5)
 
-- Implemented PATCH /api/library to update shelves, ratings, and read dates in user_books
-- Added interactive ShelfSelector dropdown badge to each card for 1-click shelf moves
-- Built InteractiveStarRating controls on book cards with hover preview and clear toggle
-- Made library stats and shelf filter counts fully reactive with optimistic updates
+- Implemented GET /api/library/export supporting both Goodreads-compatible CSV and complete JSON formats
+- Built components/library/export-modal.tsx with 1-click downloads for CSV and full JSON backups
+- Added Export button to /library header bar with instant client-side download and toast confirmation
 ```
