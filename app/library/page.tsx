@@ -15,11 +15,14 @@ import {
   BookMarked,
   Layers,
   ArrowRight,
+  Plus,
+  Check,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { AddBookModal, AddedBookItem } from "@/components/library/add-book-modal";
 
 interface BookItem {
   id: string;
@@ -101,6 +104,10 @@ export default function LibraryPage() {
   const [stats, setStats] = React.useState<LibraryStats | null>(null);
   const [loading, setLoading] = React.useState(true);
 
+  // Manual Add Modal & Notification State
+  const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+
   // Filters & Search
   const [search, setSearch] = React.useState("");
   const [activeShelf, setActiveShelf] = React.useState<ShelfFilter>("all");
@@ -119,6 +126,44 @@ export default function LibraryPage() {
       .catch((err) => console.error("Could not fetch library:", err))
       .finally(() => setLoading(false));
   }, []);
+
+  const existingBookTitles = React.useMemo(() => {
+    return new Set(books.map((b) => b.title.toLowerCase().trim()));
+  }, [books]);
+
+  const handleBookAdded = (newBook: AddedBookItem) => {
+    setBooks((prev) => {
+      const existingIndex = prev.findIndex(
+        (b) => b.book_id === newBook.book_id || b.id === newBook.id
+      );
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = newBook;
+        return updated;
+      }
+      return [newBook, ...prev];
+    });
+
+    // Refresh stats from server
+    fetch("/api/library")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.stats) setStats(data.stats);
+      })
+      .catch(console.error);
+
+    const shelfLabel =
+      newBook.shelf === "read"
+        ? "Read"
+        : newBook.shelf === "currently-reading"
+        ? "Reading Now"
+        : newBook.shelf === "did-not-finish"
+        ? "Did Not Finish"
+        : "Want to Read";
+
+    setToastMessage(`Added "${newBook.title}" to ${shelfLabel}!`);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Filter & Sort Logic
   const filteredBooks = React.useMemo(() => {
@@ -209,15 +254,32 @@ export default function LibraryPage() {
         </div>
         <h2 className="text-2xl font-bold tracking-tight">Your Library is Empty</h2>
         <p className="mt-2 text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">
-          Import your Goodreads or StoryGraph export to catalog your reading history, organize your shelves, and empower your Personal Librarian.
+          Search and add books manually or import your Goodreads / StoryGraph export to catalog your reading history and empower your Personal Librarian.
         </p>
-        <Link href="/import">
-          <Button size="lg" className="gap-2 font-semibold">
-            <BookOpen className="size-4" />
-            <span>Import Reading History</span>
-            <ArrowRight className="size-4" />
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Button
+            size="lg"
+            onClick={() => setIsAddModalOpen(true)}
+            className="gap-2 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="size-4" />
+            <span>Add Book Manually</span>
           </Button>
-        </Link>
+          <Link href="/import">
+            <Button size="lg" variant="outline" className="gap-2 font-semibold">
+              <BookOpen className="size-4" />
+              <span>Import Reading History</span>
+              <ArrowRight className="size-4" />
+            </Button>
+          </Link>
+        </div>
+
+        <AddBookModal
+          open={isAddModalOpen}
+          onOpenChange={setIsAddModalOpen}
+          onBookAdded={handleBookAdded}
+          existingBookTitles={existingBookTitles}
+        />
       </div>
     );
   }
@@ -242,8 +304,17 @@ export default function LibraryPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setIsAddModalOpen(true)}
+            className="gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="size-4" />
+            <span>Add Book</span>
+          </Button>
+
           <Link href="/chat">
-            <Button size="sm" className="gap-1.5 font-semibold">
+            <Button size="sm" variant="outline" className="gap-1.5 font-semibold">
               <Sparkles className="size-4" />
               <span>Ask Personal Librarian</span>
             </Button>
@@ -495,6 +566,23 @@ export default function LibraryPage() {
           ))}
         </div>
       )}
+
+      {/* Manual Book Addition Modal */}
+      <AddBookModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        onBookAdded={handleBookAdded}
+        existingBookTitles={existingBookTitles}
+      />
+
+      {/* Toast Alert Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-card/95 backdrop-blur-md px-4 py-3 text-sm text-foreground shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="size-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }
+

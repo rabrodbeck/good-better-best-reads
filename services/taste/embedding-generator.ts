@@ -42,3 +42,44 @@ export async function generateTasteVector(profile: TasteProfile): Promise<number
 
     return embedding;
 }
+
+/**
+ * Generates a 768-dimensional vector embedding for an individual book
+ * based on its title, author, genres, and synopsis.
+ */
+export async function generateBookEmbedding(book: {
+    title: string;
+    author: string;
+    description?: string | null;
+    genres?: string[];
+}): Promise<number[] | null> {
+    try {
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+        if (!apiKey) return null;
+
+        const google = createGoogleGenerativeAI({ apiKey });
+        const textToEmbed = [
+            `Title: ${book.title}`,
+            `Author: ${book.author}`,
+            book.genres && book.genres.length > 0 ? `Genres: ${book.genres.join(", ")}` : "",
+            book.description ? `Description: ${book.description.slice(0, 1000)}` : "",
+        ]
+            .filter(Boolean)
+            .join("\n");
+
+        const { embedding } = await embed({
+            model: google.embedding("gemini-embedding-001"),
+            value: textToEmbed,
+            providerOptions: {
+                google: {
+                    outputDimensionality: 768,
+                },
+            },
+        });
+
+        return embedding;
+    } catch (err) {
+        console.warn("Failed to generate book embedding:", err);
+        return null;
+    }
+}
