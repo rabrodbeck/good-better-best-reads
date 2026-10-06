@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Plus,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -99,9 +100,105 @@ function LibraryBookCover({
   );
 }
 
+function ShelfSelector({
+  shelf,
+  onShelfChange,
+}: {
+  shelf: BookItem["shelf"];
+  onShelfChange: (newShelf: BookItem["shelf"]) => void;
+}) {
+  const getBadgeStyle = (s: BookItem["shelf"]) => {
+    switch (s) {
+      case "read":
+        return "border-emerald-500/40 text-emerald-300 bg-emerald-950/85 hover:bg-emerald-900/90";
+      case "currently-reading":
+        return "border-amber-500/40 text-amber-300 bg-amber-950/85 hover:bg-amber-900/90";
+      case "to-read":
+        return "border-blue-500/40 text-blue-300 bg-blue-950/85 hover:bg-blue-900/90";
+      case "did-not-finish":
+        return "border-rose-500/40 text-rose-300 bg-rose-950/85 hover:bg-rose-900/90";
+      default:
+        return "border-border text-foreground bg-card/85";
+    }
+  };
+
+  return (
+    <div className="relative group/shelf" onClick={(e) => e.stopPropagation()}>
+      <select
+        value={shelf}
+        onChange={(e) => onShelfChange(e.target.value as BookItem["shelf"])}
+        className={`appearance-none cursor-pointer rounded-md border px-2 py-0.5 pr-4 text-[10px] font-bold shadow-xs backdrop-blur-md transition-all focus:outline-none focus:ring-1 focus:ring-primary ${getBadgeStyle(
+          shelf
+        )}`}
+        title="Move book to another shelf"
+      >
+        <option value="to-read" className="bg-popover text-popover-foreground">Want to Read</option>
+        <option value="currently-reading" className="bg-popover text-popover-foreground">Reading Now</option>
+        <option value="read" className="bg-popover text-popover-foreground">Read</option>
+        <option value="did-not-finish" className="bg-popover text-popover-foreground">Did Not Finish</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 size-2.5 opacity-70" />
+    </div>
+  );
+}
+
+function InteractiveStarRating({
+  rating,
+  onRate,
+}: {
+  rating: number | null;
+  onRate: (newRating: number | null) => void;
+}) {
+  const [hoverRating, setHoverRating] = React.useState<number | null>(null);
+
+  return (
+    <div
+      className="flex items-center gap-0.5 mb-1.5"
+      onMouseLeave={() => setHoverRating(null)}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {[1, 2, 3, 4, 5].map((starValue) => {
+        const isFilled =
+          (hoverRating !== null ? hoverRating >= starValue : false) ||
+          (hoverRating === null && rating !== null && rating >= starValue);
+
+        return (
+          <button
+            key={starValue}
+            type="button"
+            title={rating === starValue ? "Click to clear rating" : `Rate ${starValue} star${starValue > 1 ? "s" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRate(rating === starValue ? null : starValue);
+            }}
+            onMouseEnter={() => setHoverRating(starValue)}
+            className="p-0.5 -m-0.5 rounded-xs hover:scale-125 transition-transform cursor-pointer focus:outline-none"
+          >
+            <Star
+              className={`size-3 transition-colors ${
+                isFilled
+                  ? "fill-amber-500 text-amber-500"
+                  : "text-muted-foreground/30 hover:text-amber-500/50"
+              }`}
+            />
+          </button>
+        );
+      })}
+      <span className="text-[10px] text-muted-foreground ml-1 font-mono select-none">
+        {hoverRating !== null ? (
+          `${hoverRating}★`
+        ) : rating ? (
+          `${rating}★`
+        ) : (
+          <span className="text-[9px] italic text-muted-foreground/60">Rate</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export default function LibraryPage() {
   const [books, setBooks] = React.useState<BookItem[]>([]);
-  const [stats, setStats] = React.useState<LibraryStats | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   // Manual Add Modal & Notification State
@@ -120,16 +217,142 @@ export default function LibraryPage() {
       .then((data) => {
         if (data?.books) {
           setBooks(data.books);
-          setStats(data.stats);
         }
       })
       .catch((err) => console.error("Could not fetch library:", err))
       .finally(() => setLoading(false));
   }, []);
 
+  // Real-time reactive stats derived directly from books state
+  const stats = React.useMemo<LibraryStats | null>(() => {
+    if (loading && books.length === 0) return null;
+
+    const ratedBooks = books.filter((b) => b.rating && b.rating > 0);
+    const avgRating =
+      ratedBooks.length > 0
+        ? (ratedBooks.reduce((acc, b) => acc + (b.rating || 0), 0) / ratedBooks.length).toFixed(1)
+        : null;
+
+    return {
+      total: books.length,
+      read: books.filter((b) => b.shelf === "read").length,
+      currentlyReading: books.filter((b) => b.shelf === "currently-reading").length,
+      toRead: books.filter((b) => b.shelf === "to-read").length,
+      dnf: books.filter((b) => b.shelf === "did-not-finish").length,
+      fiveStarCount: books.filter((b) => b.rating === 5).length,
+      fourStarCount: books.filter((b) => b.rating === 4).length,
+      avgRating,
+    };
+  }, [books, loading]);
+
   const existingBookTitles = React.useMemo(() => {
     return new Set(books.map((b) => b.title.toLowerCase().trim()));
   }, [books]);
+
+  // Real-time optimistic shelf change
+  const handleShelfChange = async (book: BookItem, newShelf: BookItem["shelf"]) => {
+    if (book.shelf === newShelf) return;
+
+    const prevBooks = [...books];
+    const shelfLabels: Record<BookItem["shelf"], string> = {
+      "to-read": "Want to Read",
+      "currently-reading": "Reading Now",
+      read: "Read",
+      "did-not-finish": "Did Not Finish",
+    };
+
+    // Optimistic UI update
+    setBooks((prev) =>
+      prev.map((b) =>
+        b.id === book.id
+          ? {
+              ...b,
+              shelf: newShelf,
+              date_read: newShelf === "read" && !b.date_read ? new Date().toISOString() : b.date_read,
+            }
+          : b
+      )
+    );
+
+    setToastMessage(`Moved "${book.title}" to ${shelfLabels[newShelf]}!`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    try {
+      const res = await fetch("/api/library", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: book.id,
+          book_id: book.book_id,
+          shelf: newShelf,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update shelf");
+      }
+    } catch (err) {
+      console.error("Shelf update error:", err);
+      setBooks(prevBooks); // Rollback
+      setToastMessage(`Could not move "${book.title}". Reverted changes.`);
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
+
+  // Real-time optimistic rating change
+  const handleRatingChange = async (book: BookItem, newRating: number | null) => {
+    if (book.rating === newRating) return;
+
+    const prevBooks = [...books];
+    const willMoveToRead = newRating !== null && book.shelf === "to-read";
+
+    // Optimistic UI update
+    setBooks((prev) =>
+      prev.map((b) =>
+        b.id === book.id
+          ? {
+              ...b,
+              rating: newRating,
+              shelf: willMoveToRead ? "read" : b.shelf,
+              date_read: willMoveToRead && !b.date_read ? new Date().toISOString() : b.date_read,
+            }
+          : b
+      )
+    );
+
+    if (newRating !== null) {
+      setToastMessage(
+        willMoveToRead
+          ? `Rated "${book.title}" ${newRating} ${newRating === 1 ? "star" : "stars"} & moved to Read!`
+          : `Rated "${book.title}" ${newRating} ${newRating === 1 ? "star" : "stars"}!`
+      );
+    } else {
+      setToastMessage(`Cleared rating for "${book.title}".`);
+    }
+    setTimeout(() => setToastMessage(null), 3000);
+
+    try {
+      const res = await fetch("/api/library", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: book.id,
+          book_id: book.book_id,
+          rating: newRating,
+          ...(willMoveToRead ? { shelf: "read" } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update rating");
+      }
+    } catch (err) {
+      console.error("Rating update error:", err);
+      setBooks(prevBooks); // Rollback
+      setToastMessage(`Could not save rating for "${book.title}". Reverted changes.`);
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
 
   const handleBookAdded = (newBook: AddedBookItem) => {
     setBooks((prev) => {
@@ -143,14 +366,6 @@ export default function LibraryPage() {
       }
       return [newBook, ...prev];
     });
-
-    // Refresh stats from server
-    fetch("/api/library")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.stats) setStats(data.stats);
-      })
-      .catch(console.error);
 
     const shelfLabel =
       newBook.shelf === "read"
@@ -508,31 +723,20 @@ export default function LibraryPage() {
                       priority={index < 6}
                     />
 
-                    {/* Shelf Overlay Tag */}
-                    <div className="absolute top-1.5 left-1.5">
-                      {getShelfBadge(book.shelf)}
+                    {/* Interactive Shelf Selector Badge */}
+                    <div className="absolute top-1.5 left-1.5 z-10">
+                      <ShelfSelector
+                        shelf={book.shelf}
+                        onShelfChange={(newShelf) => handleShelfChange(book, newShelf)}
+                      />
                     </div>
                   </div>
 
-                  {/* Rating Stars */}
-                  {book.rating && book.rating > 0 ? (
-                    <div className="flex items-center gap-0.5 mb-1.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`size-3 ${
-                            i < (book.rating || 0)
-                              ? "fill-amber-500 text-amber-500"
-                              : "text-muted-foreground/30"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-muted-foreground mb-1.5 italic">
-                      Unrated
-                    </div>
-                  )}
+                  {/* Interactive 1-5 Star Rating Controls */}
+                  <InteractiveStarRating
+                    rating={book.rating}
+                    onRate={(newRating) => handleRatingChange(book, newRating)}
+                  />
 
                   {/* Title & Author */}
                   <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">

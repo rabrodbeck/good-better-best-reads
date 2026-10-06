@@ -1,51 +1,47 @@
-# Walkthrough: Manual Book Search & Addition Modal (Issue #3)
+# Walkthrough: In-App Shelf Movement & Real-Time Rating Controls (Issue #2)
 
-We have implemented manual book search and addition for GoodBetterBestReads, enabling readers to search Open Library by title, author, or ISBN and catalog books directly to their shelves with custom ratings and reviews.
+We have implemented in-app shelf movement and real-time rating controls for GoodBetterBestReads, allowing readers to reorganize their shelves and rate books directly from each card on `/library` with zero-latency optimistic updates and server persistence.
 
 ---
 
 ## What Was Built
 
-### 1. Open Library Live Search Route
-- **Location:** [`app/api/books/search/route.ts`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/api/books/search/route.ts)
-- **Features:**
-  - `GET /api/books/search?q={query}`: Searches Open Library's search index with English-first cover & edition priority.
-  - Normalizes results into a clean schema: `key`, `title`, `author`, `cover_url`, `published_year`, `page_count`, `isbn`, `isbn13`, `genres`, and `snippet` (first sentence / opening hook).
-  - `GET /api/books/search?work={workKey}`: Fetches work-level synopsis/blurbs on demand.
-
-### 2. Library Add / Upsert Endpoint & Book Vectorization
+### 1. Dedicated PATCH API Endpoint
 - **Location:** [`app/api/library/route.ts`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/api/library/route.ts)
 - **Features:**
-  - `POST /api/library`:
-    - Authenticates the current user session (with graceful preview fallback for local development).
-    - Multi-field deduplication against global `books` table (matches on ISBN-13, ISBN-10, or case-insensitive Title + Author).
-    - For new books, generates a 768-dimensional Gemini embedding via `generateBookEmbedding` ([`services/taste/embedding-generator.ts`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/services/taste/embedding-generator.ts)) so the title immediately participates in `match_books` similarity recommendations.
-    - Upserts into `user_books` with the selected shelf (`to-read`, `currently-reading`, `read`, `did-not-finish`), rating (1–5), finished date, and review notes.
-    - Returns the created `book` item formatted for immediate client display.
+  - `PATCH /api/library`:
+    - Authenticates the current user session (with graceful active profile fallback for local development).
+    - Accepts `{ id?, book_id?, shelf?, rating?, date_read?, user_review? }`.
+    - Updates `shelf`, `user_shelves`, `rating` (clamped 1–5 or cleared to `null`), `date_read`, and `updated_at` in the Supabase `user_books` table.
+    - If moved to the `read` shelf without an explicit finished date, automatically records the current date.
+    - Returns the updated book object formatted for immediate client synchronization.
 
-### 3. Interactive Modal UI
-- **Location:** [`components/library/add-book-modal.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/components/library/add-book-modal.tsx)
+### 2. Interactive Shelf Selector on Every Book Card
+- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx) (`ShelfSelector`)
 - **Features:**
-  - **Step 1 (Search & Select):**
-    - 350ms debounced live search with clear button.
-    - One-click popular search suggestions (*Dune*, *Project Hail Mary*, *The Way of Kings*, etc.).
-    - Search results list with high-res cover thumbnails, publish year, page count, genres, and opening quote snippet.
-    - "In Library" badge highlighting books the user has already cataloged.
-  - **Step 2 (Shelf & Rating Configuration):**
-    - Selected book summary card.
-    - 4 distinct reading shelf options: **Want to Read** (blue), **Reading Now** (amber), **Read** (emerald), and **Did Not Finish** (rose).
-    - Interactive 5-star rating selector with hover tooltips and dynamic sentiment labels (*"5 Stars - It was amazing!"*, etc.).
-    - Optional "Date Finished" input (defaults to today for Read books).
-    - Optional "Personal Thoughts or Review Notes" textarea.
-    - Loading spinner and error handling on save.
+  - Replaced the static overlay badge with an interactive dropdown selector with chevron indicator.
+  - Matches the shelf's color palette:
+    - **Want to Read:** Blue badge
+    - **Reading Now:** Amber badge
+    - **Read:** Emerald badge
+    - **Did Not Finish:** Rose badge
+  - Selecting any shelf instantly updates the card and triggers optimistic UI updates with immediate toast feedback (e.g. `Moved "Dune" to Read!`).
+  - Automatically reverts to previous state if a network error occurs.
 
-### 4. Integration into Library View
-- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx)
+### 3. Interactive 1–5 Star Rating Controls on Every Book Card
+- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx) (`InteractiveStarRating`)
 - **Features:**
-  - Added primary **"+ Add Book"** button in the header bar alongside "Ask Personal Librarian".
-  - Added **"+ Add Book Manually"** button to the empty library state alongside Goodreads import.
-  - Optimistic client-side state update: prepends new book to library grid and triggers recalculation of shelf statistics (`Read`, `Want to Read`, `Avg Rating`).
-  - Temporary toast banner confirming the book and shelf upon addition.
+  - Replaced static text and non-interactive stars with a responsive star rating bar.
+  - Hover previews fill up to the hovered star with dynamic rating counters (`4★`).
+  - Clicking any star (1–5) instantly saves the rating.
+  - Clicking the currently active rating clears/unrates the book.
+  - Rating an unread book automatically moves it to the **Read** shelf, matching standard reader expectations.
+
+### 4. Fully Reactive Real-Time Stats
+- **Location:** [`app/library/page.tsx`](file:///c:/Users/Ryan/Documents/GitHub/good-better-best-reads/app/library/page.tsx) (`stats`)
+- **Features:**
+  - Converted library statistics into a reactive `useMemo` computation derived directly from the active `books` state.
+  - Whenever a book changes shelf or rating, the top metrics ribbon (Total, Read & Rated, Want to Read, Average Rating) and shelf filter tabs (`All`, `Read`, `Want to Read`, `Reading`) update instantaneously with **zero latency**.
 
 ---
 
@@ -56,19 +52,17 @@ We have implemented manual book search and addition for GoodBetterBestReads, ena
    - Result: Passed with **0 errors**.
 2. **Next.js Production Build:**
    - Command: `npm run build`
-   - Result: Passed successfully, compiling all 18 routes including `/api/books/search` and `/library`.
-3. **Open Library Connectivity:**
-   - Verified live fetch with custom User-Agent returns results cleanly with titles, authors, and cover image IDs.
+   - Result: Passed with code `0`. All 18 static & dynamic routes compiled and optimized cleanly.
 
 ---
 
 ## Suggested Commit Message (For User)
 
 ```git
-feat(library): manual book search and addition modal (Closes #3)
+feat(library): in-app shelf movement and real-time rating controls (Closes #2)
 
-- Implemented GET /api/books/search querying Open Library with English-first edition and cover prioritization
-- Added POST /api/library with global catalog deduplication and Gemini 768-dim vector embeddings
-- Built components/library/add-book-modal.tsx with live search, book preview, shelf selection, and 1-5 star ratings
-- Added "+ Add Book" buttons to /library header and empty state with instant shelf & stats updates
+- Implemented PATCH /api/library to update shelves, ratings, and read dates in user_books
+- Added interactive ShelfSelector dropdown badge to each card for 1-click shelf moves
+- Built InteractiveStarRating controls on book cards with hover preview and clear toggle
+- Made library stats and shelf filter counts fully reactive with optimistic updates
 ```

@@ -412,3 +412,171 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabase = createAdminClient(supabaseUrl, supabaseKey);
+
+    // 1. Authenticate user
+    let userId: string | undefined;
+    try {
+      const serverClient = await createServerClient();
+      const {
+        data: { user },
+      } = await serverClient.auth.getUser();
+      if (user) {
+        userId = user.id;
+      }
+    } catch {
+      // Unauthenticated session
+    }
+
+    // Fallback: If not logged in, use the latest active profile (e.g. for preview/demo)
+    if (!userId) {
+      const { data: latestTaste } = await supabase
+        .from("taste_profiles")
+        .select("user_id")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      userId = latestTaste?.user_id;
+
+      if (!userId) {
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        if (usersData?.users && usersData.users.length > 0) {
+          userId = usersData.users[0].id;
+        }
+      }
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: "User session not found" }, { status: 401 });
+    }
+
+    // 2. Parse body
+    const body = await request.json();
+    const { id, book_id, shelf, rating, user_review, date_read } = body;
+
+    if (!id && !book_id) {
+      return NextResponse.json(
+        { error: "Either id (user_book record id) or book_id is required" },
+        { status: 400 }
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (shelf !== undefined) {
+      const validShelves = ["read", "currently-reading", "to-read", "did-not-finish"];
+      if (!validShelves.includes(shelf)) {
+        return NextResponse.json({ error: "Invalid shelf" }, { status: 400 });
+      }
+      updates.shelf = shelf;
+      updates.user_shelves = [shelf];
+
+      if (shelf === "read" && date_read === undefined) {
+        updates.date_read = new Date().toISOString();
+      }
+    }
+
+    if (rating !== undefined) {
+      if (rating === null || Number(rating) === 0) {
+        updates.rating = null;
+      } else {
+        updates.rating = Math.min(5, Math.max(1, Number(rating)));
+      }
+    }
+
+    if (user_review !== undefined) {
+      updates.user_review = user_review?.trim() || null;
+    }
+
+    if (date_read !== undefined) {
+      updates.date_read = date_read ? new Date(date_read).toISOString() : null;
+    }
+
+    // Apply update to user_books
+    let query = supabase.from("user_books").update(updates).eq("user_id", userId);
+
+    if (id) {
+      query = query.eq("id", id);
+    } else if (book_id) {
+      query = query.eq("book_id", book_id);
+    }
+
+    const { data: updatedRecord, error: updateError } = await query
+      .select(`
+        id,
+        shelf,
+        rating,
+        date_read,
+        user_review,
+        user_shelves,
+        book_id,
+        books (
+          id,
+          title,
+          author,
+          cover_url,
+          published_year,
+          page_count,
+          isbn,
+          isbn13
+        )
+      `)
+      .single();
+
+    if (updateError || !updatedRecord) {
+      console.error("user_books update error:", updateError);
+      return NextResponse.json(
+        { error: updateError?.message || "Record not found or failed to update" },
+        { status: 500 }
+      );
+    }
+
+    // Format returned book item
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const book: any = updatedRecord.books;
+    const isbn13 = book?.isbn13;
+    const isbn = book?.isbn;
+
+    const coverUrl =
+      book?.cover_url ||
+      (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-M.jpg?default=false` : null) ||
+      (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` : null);
+
+    const formattedBook = {
+      id: updatedRecord.id,
+      book_id: updatedRecord.book_id,
+      title: book?.title || "Untitled",
+      author: book?.author || "Unknown Author",
+      isbn,
+      isbn13,
+      cover_url: coverUrl,
+      page_count: book?.page_count || null,
+      published_year: book?.published_year || null,
+      shelf: updatedRecord.shelf,
+      rating: updatedRecord.rating ? Number(updatedRecord.rating) : null,
+      date_read: updatedRecord.date_read || null,
+      user_review: updatedRecord.user_review || null,
+      user_shelves: updatedRecord.user_shelves || [],
+    };
+
+    return NextResponse.json({
+      success: true,
+      book: formattedBook,
+    });
+  } catch (error: any) {
+    console.error("Library Update Error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to update shelf or rating" },
+      { status: 500 }
+    );
+  }
+}
