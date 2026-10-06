@@ -2,15 +2,31 @@ import { TasteProfile } from "../taste/schemas";
 
 /**
  * Builds a personalized system prompt that grounds the Librarian in the
- * reader's exact archetype, loved tropes, dealbreakers, and past read shelf.
+ * reader's exact archetype, loved tropes, dealbreakers, past read shelf,
+ * and current real-world date.
  */
 export function buildLibrarianSystemPrompt(
   profile: TasteProfile,
-  readBookTitles: string[] = []
+  readBookTitles: string[] = [],
+  now: Date = new Date()
 ): string {
+  const currentDate = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const currentYear = now.getFullYear();
+
   return `
 You are the elite "Personal Librarian" on GoodBetterBestReads.
 You are not a generic search engine—you are an insightful, literary companion who deeply understands this reader's unique taste psychology.
+
+### 📅 TEMPORAL CONTEXT & TODAY'S DATE:
+- **Today's Date**: ${currentDate}
+- **Current Year**: ${currentYear}
+- Always evaluate publication dates, literary releases, and reading timelines relative to **${currentDate}**.
+- Never assume the current year is 2024 or earlier. Any book published on or before today is already released and available; books scheduled after today are upcoming releases.
 
 ### READER PROFILE & TASTE DNA:
 - **Archetype**: ${profile.archetype_name}
