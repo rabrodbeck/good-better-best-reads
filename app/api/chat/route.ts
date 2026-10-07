@@ -58,50 +58,35 @@ export async function POST(req: Request) {
           // Unauthenticated
         }
 
-        let tasteQuery = supabase
-          .from("taste_profiles")
-          .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers");
-
         if (userId) {
-          tasteQuery = tasteQuery.eq("user_id", userId);
-        } else {
-          tasteQuery = tasteQuery.order("updated_at", { ascending: false }).limit(1);
-        }
-
-        let { data: dbTaste } = await tasteQuery.maybeSingle();
-
-        // Fallback to latest global if user doesn't have a taste profile yet
-        if (!dbTaste && userId) {
-          const { data: fallbackTaste } = await supabase
+          const { data: dbTaste } = await supabase
             .from("taste_profiles")
             .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers")
-            .order("updated_at", { ascending: false })
-            .limit(1)
+            .eq("user_id", userId)
             .maybeSingle();
-          dbTaste = fallbackTaste;
-        }
 
-        if (dbTaste) {
-          activeProfile = {
-            archetype_name: dbTaste.archetype_name,
-            archetype_summary: dbTaste.archetype_summary,
-            preferred_pacing: dbTaste.preferred_pacing || "Engaging & Dynamic",
-            emotional_tone: dbTaste.emotional_tone || "Atmospheric & Gripping",
-            top_tropes: dbTaste.top_tropes || [],
-            dealbreakers: dbTaste.dealbreakers || [],
-          };
+          if (dbTaste) {
+            activeProfile = {
+              archetype_name: dbTaste.archetype_name,
+              archetype_summary: dbTaste.archetype_summary,
+              preferred_pacing: dbTaste.preferred_pacing || "Engaging & Dynamic",
+              emotional_tone: dbTaste.emotional_tone || "Atmospheric & Gripping",
+              top_tropes: dbTaste.top_tropes || [],
+              dealbreakers: dbTaste.dealbreakers || [],
+            };
 
-          const { data: userBooksData } = await supabase
-            .from("user_books")
-            .select("books(title)")
-            .eq("user_id", dbTaste.user_id)
-            .in("shelf", ["read", "did-not-finish"]);
+            const { data: userBooksData } = await supabase
+              .from("user_books")
+              .select("books(title)")
+              .eq("user_id", userId)
+              .in("shelf", ["read", "did-not-finish"]);
 
-          if (userBooksData) {
-            activeReadBooks = userBooksData
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .map((ub: any) => ub.books?.title)
-              .filter(Boolean);
+            if (userBooksData) {
+              activeReadBooks = userBooksData
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((ub: any) => ub.books?.title)
+                .filter(Boolean);
+            }
           }
         }
       }

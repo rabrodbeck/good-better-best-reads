@@ -27,27 +27,11 @@ export async function GET(request: NextRequest) {
       // Unauthenticated session
     }
 
-    // Fallback: If not logged in, use the latest active profile (e.g. for preview/demo)
     if (!userId) {
-      const { data: latestTaste } = await supabase
-        .from("taste_profiles")
-        .select("user_id")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      userId = latestTaste?.user_id;
-
-      if (!userId) {
-        const { data: usersData } = await supabase.auth.admin.listUsers();
-        if (usersData?.users && usersData.users.length > 0) {
-          userId = usersData.users[0].id;
-        }
-      }
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: "User not found or unauthenticated" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to export your library." },
+        { status: 401 }
+      );
     }
 
     // 2. Fetch user's books joined with global catalog

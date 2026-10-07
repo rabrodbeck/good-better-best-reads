@@ -25,25 +25,6 @@ export async function GET() {
       // Unauthenticated session
     }
 
-    // Fallback: If not logged in, use the latest active profile (e.g. for preview/demo)
-    if (!userId) {
-      const { data: latestTaste } = await supabase
-        .from("taste_profiles")
-        .select("user_id")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      userId = latestTaste?.user_id;
-
-      if (!userId) {
-        const { data: usersData } = await supabase.auth.admin.listUsers();
-        if (usersData?.users && usersData.users.length > 0) {
-          userId = usersData.users[0].id;
-        }
-      }
-    }
-
     if (!userId) {
       return NextResponse.json({ books: [], stats: null });
     }
@@ -158,28 +139,11 @@ export async function POST(request: Request) {
       // Unauthenticated session
     }
 
-    // Fallback: If not logged in, use the latest active profile (e.g. for preview/demo)
     if (!userId) {
-      const { data: latestTaste } = await supabase
-        .from("taste_profiles")
-        .select("user_id")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      userId = latestTaste?.user_id;
-
-      if (!userId) {
-        const { data: usersData } = await supabase.auth.admin.listUsers();
-        if (usersData?.users && usersData.users.length > 0) {
-          userId = usersData.users[0].id;
-          userEmail = usersData.users[0].email;
-        }
-      }
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: "User session not found" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to add books to your library." },
+        { status: 401 }
+      );
     }
 
     // Ensure profiles record exists for foreign key constraint
@@ -433,27 +397,11 @@ export async function PATCH(request: Request) {
       // Unauthenticated session
     }
 
-    // Fallback: If not logged in, use the latest active profile (e.g. for preview/demo)
     if (!userId) {
-      const { data: latestTaste } = await supabase
-        .from("taste_profiles")
-        .select("user_id")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      userId = latestTaste?.user_id;
-
-      if (!userId) {
-        const { data: usersData } = await supabase.auth.admin.listUsers();
-        if (usersData?.users && usersData.users.length > 0) {
-          userId = usersData.users[0].id;
-        }
-      }
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: "User session not found" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to update your library." },
+        { status: 401 }
+      );
     }
 
     // 2. Parse body

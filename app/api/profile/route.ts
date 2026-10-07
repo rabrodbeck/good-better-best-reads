@@ -26,18 +26,19 @@ export async function GET(req: Request) {
             }
         }
 
-        // 1. Fetch taste profile (user-specific if logged in, fallback to latest for preview)
-        let tasteQuery = supabase
-            .from("taste_profiles")
-            .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, updated_at");
-
-        if (userId) {
-            tasteQuery = tasteQuery.eq("user_id", userId);
-        } else {
-            tasteQuery = tasteQuery.order("updated_at", { ascending: false }).limit(1);
+        if (!userId) {
+            return NextResponse.json({
+                profile: null,
+                tasteProfile: null,
+                stats: { totalBooks: 0, readCount: 0 },
+            });
         }
 
-        const { data: taste } = await tasteQuery.maybeSingle();
+        const { data: taste } = await supabase
+            .from("taste_profiles")
+            .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, updated_at")
+            .eq("user_id", userId)
+            .maybeSingle();
 
         if (!taste) {
             return NextResponse.json({ profile: null, tasteProfile: null });
@@ -59,6 +60,7 @@ export async function GET(req: Request) {
         const { count: readCount } = await supabase
             .from("user_books")
             .select("*", { count: "exact", head: true })
+            .eq("user_id", taste.user_id)
             .eq("shelf", "read");
 
         return NextResponse.json({
