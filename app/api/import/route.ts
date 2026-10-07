@@ -199,7 +199,7 @@ export async function POST(req: Request) {
 
             for (const b of dbBooks) {
                 if (b.isbn13) byIsbn13.set(b.isbn13, b.id);
-                if (b.isbn) existingByIsbn.set(b.isbn, b.id);
+                if (b.isbn) byIsbn.set(b.isbn, b.id);
                 byTitleAuthor.set(`${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`, b.id);
             }
 
