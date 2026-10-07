@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/chat/book-card";
+import { ChatMarkdown } from "@/components/chat/chat-markdown";
 
 const SUGGESTIONS = [
   "What should I read next based on my 5-star favorites?",
@@ -145,11 +146,14 @@ export default function ChatPage() {
                   {/* Render Message Parts */}
                   {message.parts.map((part, index) => {
                     if (part.type === "text") {
-                      return (
-                        <div key={index} className="whitespace-pre-wrap">
-                          {part.text}
-                        </div>
-                      );
+                      if (isUser) {
+                        return (
+                          <div key={index} className="whitespace-pre-wrap">
+                            {part.text}
+                          </div>
+                        );
+                      }
+                      return <ChatMarkdown key={index} content={part.text} />;
                     }
 
                     // Render Book Card from Tool Results

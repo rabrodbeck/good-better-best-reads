@@ -21,8 +21,13 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+const appBaseUrl =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://goodbetterbestreads.vercel.app");
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://goodbetterbestreads.vercel.app"),
+  metadataBase: new URL(appBaseUrl),
   title: {
     default: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
     template: "%s | GoodBetterBestReads",
