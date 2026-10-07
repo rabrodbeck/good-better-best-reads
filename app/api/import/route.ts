@@ -2,11 +2,69 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { parseGoodreadsCsv } from "@/services/parser/goodreads-normalizer";
+import { NormalizedBook } from "@/services/parser/types";
 import { analyzeTasteProfile } from "@/services/taste/taste-analyzer";
 import { generateTasteVector } from "@/services/taste/embedding-generator";
 import { enrichBookDetails } from "@/services/books/enrichment-service";
 
 export const maxDuration = 60; // Allow sufficient time for AI taste extraction
+
+interface CatalogBookSummary {
+    id: string;
+    title: string;
+    author: string;
+    isbn: string | null;
+    isbn13: string | null;
+}
+
+/**
+ * Queries the books table using targeted .in() batch filters for only the ISBNs
+ * and clean titles present in the uploaded batch, avoiding an unbounded full table scan.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchBatchMatchingBooks(
+    supabase: any,
+    batch: NormalizedBook[]
+): Promise<CatalogBookSummary[]> {
+    const isbn13List = Array.from(new Set(batch.map((b) => b.isbn13).filter((i): i is string => Boolean(i))));
+    const isbnList = Array.from(new Set(batch.map((b) => b.isbn).filter((i): i is string => Boolean(i))));
+    const titleList = Array.from(new Set(batch.map((b) => b.cleanTitle).filter((t): t is string => Boolean(t))));
+
+    const matchedBooksMap = new Map<string, CatalogBookSummary>();
+    const QUERY_CHUNK = 100;
+
+    // 1. Targeted query by ISBN13
+    for (let i = 0; i < isbn13List.length; i += QUERY_CHUNK) {
+        const chunk = isbn13List.slice(i, i + QUERY_CHUNK);
+        const { data } = await supabase
+            .from("books")
+            .select("id, title, author, isbn, isbn13")
+            .in("isbn13", chunk);
+        for (const b of data || []) matchedBooksMap.set(b.id, b);
+    }
+
+    // 2. Targeted query by ISBN10
+    for (let i = 0; i < isbnList.length; i += QUERY_CHUNK) {
+        const chunk = isbnList.slice(i, i + QUERY_CHUNK);
+        const { data } = await supabase
+            .from("books")
+            .select("id, title, author, isbn, isbn13")
+            .in("isbn", chunk);
+        for (const b of data || []) matchedBooksMap.set(b.id, b);
+    }
+
+    // 3. Targeted query by Clean Title
+    for (let i = 0; i < titleList.length; i += QUERY_CHUNK) {
+        const chunk = titleList.slice(i, i + QUERY_CHUNK);
+        const { data } = await supabase
+            .from("books")
+            .select("id, title, author, isbn, isbn13")
+            .in("title", chunk);
+        for (const b of data || []) matchedBooksMap.set(b.id, b);
+    }
+
+    return Array.from(matchedBooksMap.values());
+}
 
 export async function POST(req: Request) {
     try {
@@ -39,16 +97,14 @@ export async function POST(req: Request) {
         const tasteVector = await generateTasteVector(tasteProfile);
 
         // 3. Upsert books into the global 'books' catalog with robust multi-field deduplication
-        // Fetch existing books to match by ISBN13, ISBN, or clean Title + Author
-        const { data: existingBooks } = await supabase
-            .from("books")
-            .select("id, title, author, isbn, isbn13");
+        // Targeted query fetching only matching books by batch ISBNs or Titles
+        const existingBooks = await fetchBatchMatchingBooks(supabase, books);
 
         const existingByIsbn13 = new Map<string, string>();
         const existingByIsbn = new Map<string, string>();
         const existingByTitleAuthor = new Map<string, string>();
 
-        for (const b of existingBooks || []) {
+        for (const b of existingBooks) {
             if (b.isbn13) existingByIsbn13.set(b.isbn13, b.id);
             if (b.isbn) existingByIsbn.set(b.isbn, b.id);
             existingByTitleAuthor.set(
@@ -74,9 +130,9 @@ export async function POST(req: Request) {
 
                 let coverUrl: string | null = null;
                 if (b.isbn13) {
-                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn13}-M.jpg?default=false`;
+                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn13}-L.jpg?default=false`;
                 } else if (b.isbn) {
-                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn}-M.jpg?default=false`;
+                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn}-L.jpg?default=false`;
                 }
 
                 newBooksToInsert.push({
@@ -107,11 +163,21 @@ export async function POST(req: Request) {
             }
         }
 
+        const newlyInsertedBooks: CatalogBookSummary[] = [];
         const CHUNK_SIZE = 50;
         if (newBooksToInsert.length > 0) {
             for (let i = 0; i < newBooksToInsert.length; i += CHUNK_SIZE) {
                 const chunk = newBooksToInsert.slice(i, i + CHUNK_SIZE);
-                await supabase.from("books").insert(chunk);
+                const { data: inserted, error: insertError } = await supabase
+                    .from("books")
+                    .insert(chunk)
+                    .select("id, title, author, isbn, isbn13");
+
+                if (insertError) {
+                    console.error("Batch books insert error:", insertError);
+                } else if (inserted) {
+                    newlyInsertedBooks.push(...inserted);
+                }
             }
         }
 
@@ -165,16 +231,15 @@ export async function POST(req: Request) {
             );
 
         // 6. Map and upsert user shelves into 'user_books'
-        const { data: dbBooks } = await supabase
-            .from("books")
-            .select("id, title, author, isbn, isbn13");
+        // Combine pre-matched existing books and newly inserted books (avoids redundant full table scan)
+        const allBatchCatalogBooks = [...existingBooks, ...newlyInsertedBooks];
 
-        if (dbBooks && dbBooks.length > 0) {
+        if (allBatchCatalogBooks.length > 0) {
             const byIsbn13 = new Map<string, string>();
             const byIsbn = new Map<string, string>();
             const byTitleAuthor = new Map<string, string>();
 
-            for (const b of dbBooks) {
+            for (const b of allBatchCatalogBooks) {
                 if (b.isbn13) byIsbn13.set(b.isbn13, b.id);
                 if (b.isbn) byIsbn.set(b.isbn, b.id);
                 byTitleAuthor.set(`${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`, b.id);

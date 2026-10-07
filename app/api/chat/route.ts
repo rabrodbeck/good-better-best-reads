@@ -10,17 +10,56 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { buildLibrarianSystemPrompt } from "@/services/librarian/prompt";
 import { lookupBookCoverTool } from "@/services/librarian/tools";
+import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { ChatRequestSchema } from "@/lib/api-schemas";
 import { TasteProfile } from "@/services/taste/schemas";
 
 export const maxDuration = 60; // Allow enough time for multi-step book lookups
 
 export async function POST(req: Request) {
   try {
-    const { messages, tasteProfile, readBooks } = await req.json();
+    // 1. IP / client-based rate limiting (20 requests per minute)
+    const ip = getClientIp(req);
+    const rateLimit = checkRateLimit(`chat:${ip}`, { maxRequests: 20, windowMs: 60_000 });
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: "Too many chat requests. Please wait a moment before sending another message." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": Math.max(1, rateLimit.reset - Math.floor(Date.now() / 1000)).toString(),
+            "X-RateLimit-Limit": rateLimit.limit.toString(),
+            "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+          },
+        }
+      );
+    }
+
+    // 2. Strict Zod schema validation
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON request body" }, { status: 400 });
+    }
+
+    const parseResult = ChatRequestSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid request payload",
+          details: parseResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { messages, tasteProfile, readBooks } = parseResult.data;
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (!apiKey) {
-      return new Response("Missing Gemini API key", { status: 500 });
+      return NextResponse.json({ error: "Missing Gemini API key" }, { status: 500 });
     }
 
     // Default fallback profile if user hasn't imported a CSV yet
@@ -98,7 +137,7 @@ export async function POST(req: Request) {
     const result = streamText({
       model: google("gemini-2.5-flash"),
       system,
-      messages: await convertToModelMessages(messages),
+      messages: await convertToModelMessages(messages as any),
       stopWhen: isStepCount(5), // <-- Allows multi-step tool execution for 3+ books
       tools: {
         lookup_book_cover: lookupBookCoverTool,
