@@ -71,33 +71,61 @@ function LibraryBookCover({
 }) {
   const [imgError, setImgError] = React.useState(false);
 
-  if (coverUrl && !imgError) {
+  React.useEffect(() => {
+    setImgError(false);
+  }, [coverUrl]);
+
+  // If coverUrl is an Open Library medium image, upgrade to large for retina display
+  const optimizedCoverUrl = React.useMemo(() => {
+    if (!coverUrl) return null;
+    return coverUrl.replace(/-M\.jpg(\?.*)?$/, "-L.jpg$1");
+  }, [coverUrl]);
+
+  // Speculative ISBN fallbacks bypass Next.js image proxy to prevent 404 upstream error logs
+  const isSpeculativeIsbn = optimizedCoverUrl?.includes("/b/isbn/") ?? false;
+
+  if (optimizedCoverUrl && !imgError) {
     return (
       <Image
-        src={coverUrl}
+        src={optimizedCoverUrl}
         alt={`Cover of ${title}`}
         fill
         priority={priority}
         className="object-cover transition-transform group-hover:scale-105 duration-200"
-        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
-        unoptimized
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+        unoptimized={isSpeculativeIsbn}
         onError={() => setImgError(true)}
       />
     );
   }
 
   return (
-    <div className="p-2.5 text-center flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-card/90 via-muted/40 to-card/90">
-      <ImageOff className="size-5 text-muted-foreground/60 mb-1.5" />
-      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">
-        Cover Unavailable
-      </span>
-      <span className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">
-        {title}
-      </span>
-      <span className="text-[9px] text-muted-foreground mt-1 line-clamp-1">
-        {author}
-      </span>
+    <div className="relative p-3 text-center flex flex-col items-center justify-between h-full w-full bg-gradient-to-br from-card via-muted/50 to-card/90 select-none overflow-hidden border border-border/30">
+      {/* Subtle book spine indicator */}
+      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-r from-border/80 via-primary/30 to-transparent pointer-events-none" />
+
+      {/* Top Header */}
+      <div className="w-full flex items-center justify-center pt-1.5">
+        <span className="text-[9px] font-mono tracking-widest text-muted-foreground/60 uppercase">
+          GoodBetterBest
+        </span>
+      </div>
+
+      {/* Book Title & Author in Center */}
+      <div className="my-auto px-1">
+        <span className="text-xs font-bold text-foreground line-clamp-3 leading-snug tracking-tight">
+          {title}
+        </span>
+        <div className="w-6 h-px bg-primary/40 mx-auto my-2" />
+        <span className="text-[10px] text-muted-foreground line-clamp-1 font-medium">
+          {author}
+        </span>
+      </div>
+
+      {/* Bottom Footer Accent */}
+      <div className="w-full pb-1 flex items-center justify-center">
+        <ImageOff className="size-3 text-muted-foreground/40" />
+      </div>
     </div>
   );
 }
@@ -690,13 +718,13 @@ export default function LibraryPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
           {filteredBooks.map((book, index) => (
             <Card
               key={book.id}
               className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-xs hover:border-primary/50 transition-all flex flex-col justify-between"
             >
-              <CardContent className="p-3 flex flex-col h-full justify-between">
+              <CardContent className="p-2.5 sm:p-3 flex flex-col h-full justify-between">
                 <div>
                   {/* Book Cover Image / Styled Fallback */}
                   <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs mb-2.5 flex items-center justify-center">
@@ -708,7 +736,7 @@ export default function LibraryPage() {
                     />
 
                     {/* Interactive Shelf Selector Badge */}
-                    <div className="absolute top-1.5 left-1.5 z-10">
+                    <div className="absolute top-1.5 left-1.5 z-10 max-w-[calc(100%-12px)]">
                       <ShelfSelector
                         shelf={book.shelf}
                         onShelfChange={(newShelf) => handleShelfChange(book, newShelf)}

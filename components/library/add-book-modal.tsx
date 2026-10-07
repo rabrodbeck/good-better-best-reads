@@ -315,7 +315,6 @@ export function AddBookModal({
                               fill
                               className="object-cover group-hover:scale-105 transition-transform duration-200"
                               sizes="48px"
-                              unoptimized
                             />
                           ) : (
                             <div className="flex flex-col items-center justify-center p-1 text-center">
@@ -453,7 +452,6 @@ export function AddBookModal({
                         fill
                         className="object-cover"
                         sizes="48px"
-                        unoptimized
                       />
                     ) : (
                       <ImageOff className="size-4 text-muted-foreground/60" />

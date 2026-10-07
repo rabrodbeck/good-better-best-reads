@@ -73,14 +73,14 @@ export async function GET(request: NextRequest) {
       // 1. Cover URL resolution: prioritize cover_i, then check child editions, then ISBN
       let coverUrl: string | null = null;
       if (doc.cover_i) {
-        coverUrl = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`;
+        coverUrl = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
       } else if (doc.editions?.docs && Array.isArray(doc.editions.docs)) {
         const engEdition = doc.editions.docs.find(
           (e: any) => e.cover_i && (e.language?.includes("eng") || e.language?.includes("en"))
         );
         const editionCover = engEdition?.cover_i || doc.editions.docs[0]?.cover_i;
         if (editionCover) {
-          coverUrl = `https://covers.openlibrary.org/b/id/${editionCover}-M.jpg`;
+          coverUrl = `https://covers.openlibrary.org/b/id/${editionCover}-L.jpg`;
         }
       }
 
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 
       if (!coverUrl && (isbn13 || isbn10)) {
         const isbnToUse = isbn13 || isbn10;
-        coverUrl = `https://covers.openlibrary.org/b/isbn/${isbnToUse}-M.jpg?default=false`;
+        coverUrl = `https://covers.openlibrary.org/b/isbn/${isbnToUse}-L.jpg?default=false`;
       }
 
       // 3. First sentence / snippet preview

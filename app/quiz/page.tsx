@@ -647,7 +647,6 @@ export default function QuizPage() {
                           fill
                           className="object-cover"
                           sizes="150px"
-                          unoptimized
                         />
                       ) : (
                         <div className="p-2 text-center text-[10px] text-muted-foreground">

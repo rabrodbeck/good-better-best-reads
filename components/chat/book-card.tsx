@@ -25,33 +25,53 @@ export function BookCard({
 }: BookCardProps) {
   const [imgError, setImgError] = React.useState(false);
 
+  React.useEffect(() => {
+    setImgError(false);
+  }, [coverUrl]);
+
+  const optimizedCoverUrl = React.useMemo(() => {
+    if (!coverUrl) return null;
+    return coverUrl.replace(/-M\.jpg(\?.*)?$/, "-L.jpg$1");
+  }, [coverUrl]);
+
+  // Speculative ISBN fallbacks bypass Next.js image proxy to prevent 404 upstream error logs
+  const isSpeculativeIsbn = optimizedCoverUrl?.includes("/b/isbn/") ?? false;
+
   return (
     <Card className="my-3 overflow-hidden border-primary/20 bg-card/60 backdrop-blur-xs transition-all hover:border-primary/40">
       <CardContent className="flex flex-col sm:flex-row gap-4 p-4">
         {/* Cover Image or Fallback */}
         <div className="relative h-44 w-30 shrink-0 overflow-hidden rounded-lg bg-muted/60 border border-border/60 shadow-xs flex items-center justify-center">
-          {coverUrl && !imgError ? (
+          {optimizedCoverUrl && !imgError ? (
             <Image
-              src={coverUrl}
+              src={optimizedCoverUrl}
               alt={`Cover of ${title}`}
               fill
               className="object-cover"
               sizes="120px"
-              unoptimized
+              unoptimized={isSpeculativeIsbn}
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center p-2.5 text-center text-muted-foreground h-full w-full bg-gradient-to-b from-card/80 via-muted/50 to-card/80">
-              <ImageOff className="size-5 mb-1.5 opacity-60 text-muted-foreground" />
-              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">
-                Cover Unavailable
-              </span>
-              <span className="text-[10px] font-bold text-foreground leading-tight line-clamp-2">
-                {title}
-              </span>
-              <span className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1">
-                {author}
-              </span>
+            <div className="relative p-2.5 text-center flex flex-col items-center justify-between h-full w-full bg-gradient-to-br from-card via-muted/50 to-card/90 select-none overflow-hidden">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-r from-border/80 via-primary/30 to-transparent pointer-events-none" />
+              <div className="w-full pt-1">
+                <span className="text-[8px] font-mono tracking-widest text-muted-foreground/60 uppercase">
+                  GoodBetterBest
+                </span>
+              </div>
+              <div className="my-auto px-1">
+                <span className="text-[11px] font-bold text-foreground leading-tight line-clamp-2">
+                  {title}
+                </span>
+                <div className="w-4 h-px bg-primary/40 mx-auto my-1.5" />
+                <span className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1">
+                  {author}
+                </span>
+              </div>
+              <div className="w-full pb-0.5 flex items-center justify-center">
+                <ImageOff className="size-3 text-muted-foreground/40" />
+              </div>
             </div>
           )}
         </div>

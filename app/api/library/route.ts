@@ -68,8 +68,8 @@ export async function GET() {
 
       const coverUrl =
         book?.cover_url ||
-        (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-M.jpg?default=false` : null) ||
-        (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` : null);
+        (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg?default=false` : null) ||
+        (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false` : null);
 
       return {
         id: ub.id,
@@ -496,8 +496,8 @@ export async function PATCH(request: Request) {
 
     const coverUrl =
       book?.cover_url ||
-      (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-M.jpg?default=false` : null) ||
-      (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` : null);
+      (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg?default=false` : null) ||
+      (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false` : null);
 
     const formattedBook = {
       id: updatedRecord.id,
