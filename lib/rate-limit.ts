@@ -75,16 +75,38 @@ export function checkRateLimit(
 }
 
 /**
- * Extracts client IP from standard request headers.
+ * Extracts client IP from request headers, prioritizing edge-verified headers
+ * and defending against X-Forwarded-For spoofing (SEC / Issue #23).
  */
 export function getClientIp(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
+  // 1. Edge-verified platform headers (cannot be forged by clients behind Vercel/Cloudflare)
+  const vercelForwarded = req.headers.get("x-vercel-forwarded-for");
+  if (vercelForwarded) {
+    const ips = vercelForwarded.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ips.length > 0) return ips[0];
   }
+
+  const cfConnectingIp = req.headers.get("cf-connecting-ip");
+  if (cfConnectingIp && cfConnectingIp.trim()) {
+    return cfConnectingIp.trim();
+  }
+
   const realIp = req.headers.get("x-real-ip");
-  if (realIp) {
+  if (realIp && realIp.trim()) {
     return realIp.trim();
   }
+
+  // 2. Standard X-Forwarded-For fallback:
+  // Upstream reverse proxies append the authentic client IP to the END of the chain.
+  // Using the rightmost IP prevents client-injected leftmost spoofing.
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const ips = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ips.length > 0) {
+      return ips[ips.length - 1];
+    }
+  }
+
   return "127.0.0.1";
 }
+

@@ -42,38 +42,35 @@ export async function GET(req: Request) {
           }
         }
 
-        let tasteQuery = supabase
-          .from("taste_profiles")
-          .select("archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, user_id");
-
+        // Only query database if an explicit target user exists (SEC / Issue #22)
         if (targetUserId) {
-          tasteQuery = tasteQuery.eq("user_id", targetUserId);
-        } else {
-          tasteQuery = tasteQuery.order("updated_at", { ascending: false }).limit(1);
-        }
+          const { data: dbTaste } = await supabase
+            .from("taste_profiles")
+            .select("archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, user_id")
+            .eq("user_id", targetUserId)
+            .maybeSingle();
 
-        const { data: dbTaste } = await tasteQuery.maybeSingle();
+          if (dbTaste) {
+            archetype = dbTaste.archetype_name;
+            pacing = dbTaste.preferred_pacing || "Propulsive & High-Octane";
+            tone = dbTaste.emotional_tone || "Tense & Unforgiving";
+            tropes = dbTaste.top_tropes || [];
+            dealbreakers = dbTaste.dealbreakers || [];
 
-        if (dbTaste) {
-          archetype = dbTaste.archetype_name;
-          pacing = dbTaste.preferred_pacing || "Propulsive & High-Octane";
-          tone = dbTaste.emotional_tone || "Tense & Unforgiving";
-          tropes = dbTaste.top_tropes || [];
-          dealbreakers = dbTaste.dealbreakers || [];
+            const { count: total } = await supabase
+              .from("user_books")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", dbTaste.user_id);
 
-          const { count: total } = await supabase
-            .from("user_books")
-            .select("*", { count: "exact", head: true })
-            .eq("user_id", dbTaste.user_id);
+            const { count: read } = await supabase
+              .from("user_books")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", dbTaste.user_id)
+              .eq("shelf", "read");
 
-          const { count: read } = await supabase
-            .from("user_books")
-            .select("*", { count: "exact", head: true })
-            .eq("user_id", dbTaste.user_id)
-            .eq("shelf", "read");
-
-          if (total) totalBooks = total;
-          if (read) readBooks = read;
+            if (typeof total === "number") totalBooks = total;
+            if (typeof read === "number") readBooks = read;
+          }
         }
       }
     }

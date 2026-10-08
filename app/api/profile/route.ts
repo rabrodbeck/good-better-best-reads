@@ -11,22 +11,22 @@ export async function GET(req: Request) {
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
         const supabase = createAdminClient(supabaseUrl, supabaseKey);
 
-        let userId: string | undefined = requestedUserId || undefined;
-        if (!userId) {
-            try {
-                const serverClient = await createServerClient();
-                const {
-                    data: { user },
-                } = await serverClient.auth.getUser();
-                if (user) {
-                    userId = user.id;
-                }
-            } catch {
-                // Unauthenticated
+        let requestingUserId: string | undefined;
+        try {
+            const serverClient = await createServerClient();
+            const {
+                data: { user },
+            } = await serverClient.auth.getUser();
+            if (user) {
+                requestingUserId = user.id;
             }
+        } catch {
+            // Unauthenticated
         }
 
-        if (!userId) {
+        const targetUserId: string | undefined = requestedUserId || requestingUserId;
+
+        if (!targetUserId) {
             return NextResponse.json({
                 profile: null,
                 tasteProfile: null,
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
         const { data: taste } = await supabase
             .from("taste_profiles")
             .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers, updated_at")
-            .eq("user_id", userId)
+            .eq("user_id", targetUserId)
             .maybeSingle();
 
         if (!taste) {
@@ -63,8 +63,19 @@ export async function GET(req: Request) {
             .eq("user_id", taste.user_id)
             .eq("shelf", "read");
 
+        // Omit email if requester is not authenticated profile owner (SEC / Issue #21)
+        const isOwner = Boolean(requestingUserId && requestingUserId === taste.user_id);
+        const safeProfile = profile
+            ? {
+                  id: profile.id,
+                  display_name: profile.display_name,
+                  taste_archetype: profile.taste_archetype,
+                  ...(isOwner && profile.email ? { email: profile.email } : {}),
+              }
+            : null;
+
         return NextResponse.json({
-            profile,
+            profile: safeProfile,
             tasteProfile: taste,
             stats: {
                 totalBooks: totalBooks || 0,
