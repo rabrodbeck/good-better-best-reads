@@ -115,6 +115,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No CSV file provided" }, { status: 400 });
         }
 
+        // 3. Enforce 5MB file upload cap to prevent memory exhaustion and DoS (SEC / Issue #25)
+        const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            return NextResponse.json(
+                { error: "File exceeds 5MB limit. Please upload a smaller CSV export." },
+                { status: 413 }
+            );
+        }
+
         const csvContent = await file.text();
         const { books, stats, errors } = parseGoodreadsCsv(csvContent);
 

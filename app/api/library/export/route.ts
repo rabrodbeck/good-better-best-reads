@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import Papa from "papaparse";
+import { sanitizeCsvCell } from "@/lib/csv-security";
 
 export const dynamic = "force-dynamic";
 
@@ -101,9 +102,9 @@ export async function GET(request: NextRequest) {
 
         return {
           "Book Id": ub.book_id || ub.id,
-          Title: book?.title || "Untitled",
-          Author: book?.author || "Unknown Author",
-          "Author l-f": book?.author || "",
+          Title: sanitizeCsvCell(book?.title || "Untitled"),
+          Author: sanitizeCsvCell(book?.author || "Unknown Author"),
+          "Author l-f": sanitizeCsvCell(book?.author || ""),
           "Additional Authors": "",
           ISBN: isbn,
           ISBN13: isbn13,
@@ -116,10 +117,10 @@ export async function GET(request: NextRequest) {
           "Original Publication Year": book?.published_year || "",
           "Date Read": formattedDateRead,
           "Date Added": formattedDateAdded,
-          Bookshelves: ub.shelf || "",
-          "Bookshelves with positions": ub.shelf || "",
-          "Exclusive Shelf": ub.shelf || "to-read",
-          "My Review": ub.user_review || "",
+          Bookshelves: sanitizeCsvCell(ub.shelf || ""),
+          "Bookshelves with positions": sanitizeCsvCell(ub.shelf || ""),
+          "Exclusive Shelf": sanitizeCsvCell(ub.shelf || "to-read"),
+          "My Review": sanitizeCsvCell(ub.user_review || ""),
           Spoiler: "",
           "Private Notes": "",
           "Read Count": ub.shelf === "read" ? 1 : 0,

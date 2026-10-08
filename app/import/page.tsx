@@ -32,10 +32,17 @@ export default function ImportPage() {
   } | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selected = e.target.files[0];
+      if (selected.size > MAX_FILE_SIZE_BYTES) {
+        setFile(null);
+        setErrorMessage("File exceeds 5MB limit. Please upload a smaller CSV export.");
+        return;
+      }
+      setFile(selected);
       setErrorMessage(null);
     }
   };
@@ -44,12 +51,17 @@ export default function ImportPage() {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.name.endsWith(".csv")) {
-        setFile(droppedFile);
-        setErrorMessage(null);
-      } else {
+      if (!droppedFile.name.endsWith(".csv")) {
         setErrorMessage("Please drop a valid .csv file from Goodreads or StoryGraph.");
+        return;
       }
+      if (droppedFile.size > MAX_FILE_SIZE_BYTES) {
+        setFile(null);
+        setErrorMessage("File exceeds 5MB limit. Please upload a smaller CSV export.");
+        return;
+      }
+      setFile(droppedFile);
+      setErrorMessage(null);
     }
   };
 
