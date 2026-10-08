@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { resolveSafeRedirectUrl } from "@/lib/auth-security";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   // Default redirect to library or specified destination
-  const next = searchParams.get("next") ?? "/library";
+  const rawNext = searchParams.get("next");
 
   if (code) {
     const supabase = await createClient();
@@ -48,17 +49,11 @@ export async function GET(request: Request) {
         }
       }
 
-      // Handle forward host for Vercel production deployment vs local dev
+      // Handle forward host safely against trusted domains
       const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
+      const safeRedirectUrl = resolveSafeRedirectUrl(rawNext, origin, forwardedHost);
 
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
-      } else {
-        return NextResponse.redirect(`${origin}${next}`);
-      }
+      return NextResponse.redirect(safeRedirectUrl);
     } else if (error) {
       console.error("Error exchanging auth code for session:", error.message);
     }

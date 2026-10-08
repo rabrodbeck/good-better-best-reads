@@ -6,6 +6,7 @@ import { NormalizedBook } from "@/services/parser/types";
 import { analyzeTasteProfile } from "@/services/taste/taste-analyzer";
 import { generateTasteVector } from "@/services/taste/embedding-generator";
 import { enrichBookDetails } from "@/services/books/enrichment-service";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const maxDuration = 60; // Allow sufficient time for AI taste extraction
 
@@ -68,6 +69,45 @@ async function fetchBatchMatchingBooks(
 
 export async function POST(req: Request) {
     try {
+        // 1. Sliding-window IP rate limiting (5 requests per minute)
+        const ip = getClientIp(req);
+        const rateLimit = checkRateLimit(`import:${ip}`, { maxRequests: 5, windowMs: 60_000 });
+        if (!rateLimit.success) {
+            return NextResponse.json(
+                { error: "Too many import requests. Please wait a moment before trying again." },
+                {
+                    status: 429,
+                    headers: {
+                        "Retry-After": Math.max(1, rateLimit.reset - Math.floor(Date.now() / 1000)).toString(),
+                        "X-RateLimit-Limit": rateLimit.limit.toString(),
+                        "X-RateLimit-Remaining": rateLimit.remaining.toString(),
+                        "X-RateLimit-Reset": rateLimit.reset.toString(),
+                    },
+                }
+            );
+        }
+
+        // 2. Strict Session Authentication before processing or external API calls
+        let userId: string | undefined;
+        try {
+            const serverClient = await createServerClient();
+            const {
+                data: { user },
+            } = await serverClient.auth.getUser();
+            if (user) {
+                userId = user.id;
+            }
+        } catch {
+            // Not authenticated
+        }
+
+        if (!userId) {
+            return NextResponse.json(
+                { error: "Unauthorized. Please sign in to import your library." },
+                { status: 401 }
+            );
+        }
+
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
 
@@ -181,29 +221,7 @@ export async function POST(req: Request) {
             }
         }
 
-        // 4. Ensure a user profile exists to link shelves and taste
-        let userId: string | undefined;
-
-        try {
-            const serverClient = await createServerClient();
-            const {
-                data: { user },
-            } = await serverClient.auth.getUser();
-            if (user) {
-                userId = user.id;
-            }
-        } catch {
-            // Not authenticated
-        }
-
-        if (!userId) {
-            return NextResponse.json(
-                { error: "Unauthorized. Please sign in to import your library." },
-                { status: 401 }
-            );
-        }
-
-        // Update profile archetype title
+        // 4. Update user profile to link shelves and taste
         await supabase
             .from("profiles")
             .update({
