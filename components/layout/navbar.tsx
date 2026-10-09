@@ -1,12 +1,26 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { BookOpen, Sparkles, Dna, UploadCloud } from "lucide-react";
+import { BookOpen, Sparkles, Dna, UploadCloud, Users } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { AuthButton } from "./auth-button";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
+  const [pendingCount, setPendingCount] = React.useState(0);
+
+  React.useEffect(() => {
+    fetch("/api/friends")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.pendingIncoming?.length) {
+          setPendingCount(data.pendingIncoming.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
@@ -46,6 +60,18 @@ export function Navbar() {
             className="transition-colors hover:text-foreground"
           >
             My Shelves
+          </Link>
+          <Link
+            href="/friends"
+            className="flex items-center gap-1.5 transition-colors hover:text-foreground"
+          >
+            <Users className="size-4 text-blue-400" />
+            <span>Friends</span>
+            {pendingCount > 0 && (
+              <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {pendingCount}
+              </span>
+            )}
           </Link>
         </nav>
 
