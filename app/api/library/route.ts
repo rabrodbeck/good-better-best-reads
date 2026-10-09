@@ -5,28 +5,53 @@ import { generateBookEmbedding } from "@/services/taste/embedding-generator";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createAdminClient(supabaseUrl, supabaseKey);
 
+    const { searchParams } = new URL(req.url);
+    const targetUserId = searchParams.get("user") || searchParams.get("userId");
+
     // 1. Check if user is authenticated via session cookies
-    let userId: string | undefined;
+    let requestingUserId: string | undefined;
     try {
       const serverClient = await createServerClient();
       const {
         data: { user },
       } = await serverClient.auth.getUser();
       if (user) {
-        userId = user.id;
+        requestingUserId = user.id;
       }
     } catch {
       // Unauthenticated session
     }
 
-    if (!userId) {
-      return NextResponse.json({ books: [], stats: null });
+    if (!requestingUserId) {
+      return NextResponse.json({ books: [], stats: null, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const libraryOwnerId = targetUserId || requestingUserId;
+    const isOwnLibrary = libraryOwnerId === requestingUserId;
+
+    // Friends-Only access control: verify mutual accepted friendship if viewing another reader's shelves
+    if (!isOwnLibrary) {
+      const { data: friendship, error: fError } = await supabase
+        .from("friendships")
+        .select("id")
+        .or(
+          `and(requester_id.eq.${requestingUserId},addressee_id.eq.${libraryOwnerId}),and(requester_id.eq.${libraryOwnerId},addressee_id.eq.${requestingUserId})`
+        )
+        .eq("status", "accepted")
+        .maybeSingle();
+
+      if (fError || !friendship) {
+        return NextResponse.json(
+          { error: "You must be friends with this reader to view their shelves." },
+          { status: 403 }
+        );
+      }
     }
 
     // 2. Fetch all books from user_books joined with books
@@ -51,7 +76,7 @@ export async function GET() {
           isbn13
         )
       `)
-      .eq("user_id", userId)
+      .eq("user_id", libraryOwnerId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -107,9 +132,21 @@ export async function GET() {
       avgRating,
     };
 
+    let owner = null;
+    if (!isOwnLibrary) {
+      const { data: ownerProfile } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, taste_archetype")
+        .eq("id", libraryOwnerId)
+        .maybeSingle();
+      owner = ownerProfile;
+    }
+
     return NextResponse.json({
       books,
       stats,
+      isOwnLibrary,
+      owner,
     });
   } catch (error) {
     console.error("Library API Error:", error);
