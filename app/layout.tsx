@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/layout/providers";
 import { Navbar } from "@/components/layout/navbar";
+import { BottomNav } from "@/components/layout/bottom-nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +19,7 @@ export const viewport: Viewport = {
   themeColor: "#10b981",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 const appBaseUrl =
@@ -76,7 +77,8 @@ export default function RootLayout({
       >
         <AppProviders>
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pb-20 md:pb-0">{children}</main>
+          <BottomNav />
         </AppProviders>
       </body>
     </html>

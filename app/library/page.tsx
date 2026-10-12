@@ -157,7 +157,7 @@ function ShelfSelector({
       <select
         value={shelf}
         onChange={(e) => onShelfChange(e.target.value as BookItem["shelf"])}
-        className={`appearance-none cursor-pointer rounded-md border px-2 py-0.5 pr-4 text-[10px] font-bold shadow-xs backdrop-blur-md transition-all focus:outline-none focus:ring-1 focus:ring-primary ${getBadgeStyle(
+        className={`appearance-none cursor-pointer rounded-md border px-2.5 py-1 sm:px-2 sm:py-0.5 pr-5 sm:pr-4 text-xs sm:text-[10px] font-bold shadow-xs backdrop-blur-md transition-all focus:outline-none focus:ring-1 focus:ring-primary ${getBadgeStyle(
           shelf
         )}`}
         title="Move book to another shelf"
@@ -167,7 +167,7 @@ function ShelfSelector({
         <option value="read" className="bg-popover text-popover-foreground">Read</option>
         <option value="did-not-finish" className="bg-popover text-popover-foreground">Did Not Finish</option>
       </select>
-      <ChevronDown className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 size-2.5 opacity-70" />
+      <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 size-3 sm:size-2.5 opacity-70" />
     </div>
   );
 }
@@ -183,7 +183,7 @@ function InteractiveStarRating({
 
   return (
     <div
-      className="flex items-center gap-0.5 mb-1.5"
+      className="flex items-center gap-1 sm:gap-0.5 mb-1.5 py-0.5"
       onMouseLeave={() => setHoverRating(null)}
       onClick={(e) => e.stopPropagation()}
     >
@@ -202,10 +202,10 @@ function InteractiveStarRating({
               onRate(rating === starValue ? null : starValue);
             }}
             onMouseEnter={() => setHoverRating(starValue)}
-            className="p-0.5 -m-0.5 rounded-xs hover:scale-125 transition-transform cursor-pointer focus:outline-none"
+            className="p-1 sm:p-0.5 -m-0.5 rounded-xs hover:scale-125 transition-transform cursor-pointer focus:outline-none touch-manipulation"
           >
             <Star
-              className={`size-3 transition-colors ${
+              className={`size-4 sm:size-3 transition-colors ${
                 isFilled
                   ? "fill-amber-500 text-amber-500"
                   : "text-muted-foreground/30 hover:text-amber-500/50"
@@ -214,13 +214,13 @@ function InteractiveStarRating({
           </button>
         );
       })}
-      <span className="text-[10px] text-muted-foreground ml-1 font-mono select-none">
+      <span className="text-xs sm:text-[10px] text-muted-foreground ml-1 font-mono select-none">
         {hoverRating !== null ? (
           `${hoverRating}★`
         ) : rating ? (
           `${rating}★`
         ) : (
-          <span className="text-[9px] italic text-muted-foreground/60">Rate</span>
+          <span className="text-[10px] sm:text-[9px] italic text-muted-foreground/60">Rate</span>
         )}
       </span>
     </div>
@@ -502,7 +502,7 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="container mx-auto flex max-w-6xl flex-col px-4 py-8 sm:py-10">
+    <div className="container mx-auto flex max-w-6xl flex-col px-3.5 sm:px-6 py-5 sm:py-10 pb-28 sm:pb-12">
       {/* Title & Stats Ribbon */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/40 pb-6 mb-6">
         <div>
@@ -751,10 +751,10 @@ export default function LibraryPage() {
                   />
 
                   {/* Title & Author */}
-                  <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                  <h4 className="text-sm sm:text-xs font-semibold sm:font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                     {book.title}
                   </h4>
-                  <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                  <p className="text-xs sm:text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                     {book.author}
                   </p>
                 </div>

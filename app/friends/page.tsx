@@ -157,7 +157,7 @@ export default function FriendsPage() {
   };
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8 sm:py-12">
+    <div className="container mx-auto max-w-6xl px-3.5 sm:px-6 py-5 sm:py-12 pb-28 sm:pb-12">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -185,10 +185,10 @@ export default function FriendsPage() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-3 mb-6">
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3 mb-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab("friends")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+          className={`flex items-center gap-2 px-3.5 py-2 sm:py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
             activeTab === "friends"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -200,7 +200,7 @@ export default function FriendsPage() {
 
         <button
           onClick={() => setActiveTab("requests")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors relative ${
+          className={`flex items-center gap-2 px-3.5 py-2 sm:py-1.5 text-xs font-semibold rounded-lg transition-colors relative shrink-0 ${
             activeTab === "requests"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -217,7 +217,7 @@ export default function FriendsPage() {
 
         <button
           onClick={() => setActiveTab("invites")}
-          className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+          className={`flex items-center gap-2 px-3.5 py-2 sm:py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
             activeTab === "invites"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"

@@ -11,6 +11,7 @@ import {
   Dna,
   UploadCloud,
   ChevronDown,
+  Users,
 } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -181,6 +182,15 @@ export function AuthButton() {
             >
               <BookOpen className="size-4 text-primary" />
               <span>My Shelves</span>
+            </Link>
+
+            <Link
+              href="/friends"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/80 transition-colors"
+            >
+              <Users className="size-4 text-blue-400" />
+              <span>Friends</span>
             </Link>
 
             <Link

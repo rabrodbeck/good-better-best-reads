@@ -230,7 +230,7 @@ export default function FriendLibraryPage() {
   const friendName = owner?.display_name || "Friend";
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-8 sm:py-12">
+    <div className="container mx-auto max-w-7xl px-3.5 sm:px-6 py-5 sm:py-12 pb-28 sm:pb-12">
       {/* Top Breadcrumb & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -409,10 +409,10 @@ export default function FriendLibraryPage() {
                       )}
                     </div>
 
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1 leading-snug group-hover:text-primary transition-colors">
+                    <h4 className="text-sm sm:text-xs font-semibold sm:font-bold text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
                       {book.title}
                     </h4>
-                    <p className="text-[11px] text-muted-foreground line-clamp-1">
+                    <p className="text-xs sm:text-[11px] text-muted-foreground line-clamp-1">
                       {book.author}
                     </p>
                   </div>
