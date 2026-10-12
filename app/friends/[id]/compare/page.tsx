@@ -122,7 +122,7 @@ export default function FriendComparePage() {
           <div className="flex items-center gap-3 text-center sm:text-left">
             <div className="relative size-14 rounded-full overflow-hidden bg-primary/10 text-primary font-bold flex items-center justify-center text-lg border-2 border-primary/30 shrink-0">
               {me.avatarUrl ? (
-                <Image src={me.avatarUrl} alt={me.displayName} fill className="object-cover" />
+                <Image src={me.avatarUrl} alt={me.displayName} fill sizes="56px" className="object-cover" />
               ) : (
                 <span>{me.displayName.charAt(0).toUpperCase()}</span>
               )}
@@ -165,7 +165,7 @@ export default function FriendComparePage() {
             </div>
             <div className="relative size-14 rounded-full overflow-hidden bg-emerald-500/10 text-emerald-400 font-bold flex items-center justify-center text-lg border-2 border-emerald-500/30 shrink-0">
               {friend.avatarUrl ? (
-                <Image src={friend.avatarUrl} alt={friend.displayName} fill className="object-cover" />
+                <Image src={friend.avatarUrl} alt={friend.displayName} fill sizes="56px" className="object-cover" />
               ) : (
                 <span>{friend.displayName.charAt(0).toUpperCase()}</span>
               )}
@@ -323,7 +323,14 @@ export default function FriendComparePage() {
               <Card key={book.bookId} className="border-border/60 bg-card/60 p-4 flex gap-3">
                 {book.coverUrl && (
                   <div className="relative w-12 h-18 rounded-xs overflow-hidden shrink-0 border border-border/40">
-                    <Image src={book.coverUrl} alt={book.title} fill className="object-cover" />
+                    <Image
+                      src={book.coverUrl}
+                      alt={book.title}
+                      fill
+                      sizes="48px"
+                      unoptimized={book.coverUrl.includes("/b/isbn/")}
+                      className="object-cover"
+                    />
                   </div>
                 )}
                 <div className="min-w-0 flex flex-col justify-between flex-1">
@@ -380,7 +387,14 @@ export default function FriendComparePage() {
                 >
                   {rec.coverUrl && (
                     <div className="relative w-8 h-12 rounded-xs overflow-hidden shrink-0 border border-border/40">
-                      <Image src={rec.coverUrl} alt={rec.title} fill className="object-cover" />
+                      <Image
+                        src={rec.coverUrl}
+                        alt={rec.title}
+                        fill
+                        sizes="32px"
+                        unoptimized={rec.coverUrl.includes("/b/isbn/")}
+                        className="object-cover"
+                      />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
@@ -419,7 +433,14 @@ export default function FriendComparePage() {
                 >
                   {rec.coverUrl && (
                     <div className="relative w-8 h-12 rounded-xs overflow-hidden shrink-0 border border-border/40">
-                      <Image src={rec.coverUrl} alt={rec.title} fill className="object-cover" />
+                      <Image
+                        src={rec.coverUrl}
+                        alt={rec.title}
+                        fill
+                        sizes="32px"
+                        unoptimized={rec.coverUrl.includes("/b/isbn/")}
+                        className="object-cover"
+                      />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">

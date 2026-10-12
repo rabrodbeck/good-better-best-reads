@@ -72,19 +72,31 @@ export function cleanTitleForSearch(title: string): string {
   return title.replace(/\s*\([^)]*\)\s*/g, " ").trim();
 }
 
+import { resolveBookCover, isBadCoverUrl } from "./cover-service";
+
 /**
- * Fetches verified cover, blurb, and publication metadata from Open Library.
- * Prioritizes direct ISBN lookup, then falls back to English-first Title + Author edition search.
+ * Fetches verified cover, blurb, and publication metadata.
+ * Prioritizes 3-tier cover resolution (Goodreads -> Google Books -> Open Library),
+ * then extracts supplementary metadata (genres, page count, year) from Open Library.
  */
 export async function enrichBookDetails(
   title: string,
   author: string,
-  isbn?: string | null
+  isbn?: string | null,
+  goodreadsId?: string | null
 ): Promise<EnrichedBookDetails | null> {
   try {
+    // 1. Resolve cover using the 3-tier engine
+    const coverResult = await resolveBookCover({
+      title,
+      author,
+      isbn,
+      goodreadsId,
+    });
+
     let searchUrl = "";
 
-    // 1. If clean ISBN is available, query directly by ISBN
+    // 2. If clean ISBN is available, query Open Library for metadata
     if (isbn && isbn.length >= 10) {
       searchUrl = `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`;
       const res = await fetch(searchUrl, {
@@ -96,10 +108,11 @@ export async function enrichBookDetails(
         const bookKey = `ISBN:${isbn}`;
         if (data[bookKey]) {
           const item = data[bookKey];
+          const olCover = item.cover?.large || item.cover?.medium || null;
           return {
             title: item.title || title,
             author: item.authors?.[0]?.name || author,
-            coverUrl: item.cover?.large || item.cover?.medium || null,
+            coverUrl: coverResult.coverUrl || (isBadCoverUrl(olCover) ? null : olCover),
             description: typeof item.notes === "string" ? item.notes : null,
             genres: (item.subjects || []).slice(0, 5).map((s: { name: string }) => s.name),
             pageCount: item.number_of_pages || null,
@@ -110,10 +123,9 @@ export async function enrichBookDetails(
       }
     }
 
-    // 2. Fallback: Search by clean Title and Author with English-first edition prioritization
+    // 3. Fallback: Search Open Library by clean Title and Author for supplementary metadata
     const cleanTitle = cleanTitleForSearch(title);
 
-    // Prefer structured title & author search first to prevent broad full-text matching
     searchUrl = `https://openlibrary.org/search.json?title=${encodeURIComponent(
       cleanTitle
     )}&author=${encodeURIComponent(
@@ -128,7 +140,6 @@ export async function enrichBookDetails(
     let searchData = searchRes.ok ? await searchRes.json() : null;
     let docs: any[] = searchData?.docs || [];
 
-    // Fall back to combined query if structured search returned nothing
     if (docs.length === 0) {
       searchUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(
         `${cleanTitle} ${author}`
@@ -141,23 +152,43 @@ export async function enrichBookDetails(
       docs = searchData?.docs || [];
     }
 
-    // Strictly verify document identity to reject false positives (e.g. unrelated comic books or old scans)
     const doc = docs.find((d) => isBookMatch(cleanTitle, author, d));
-    if (!doc) return null;
+    
+    // If no Open Library doc was matched, still return the resolved cover if available
+    if (!doc) {
+      if (coverResult.coverUrl) {
+        return {
+          title,
+          author,
+          coverUrl: coverResult.coverUrl,
+          description: null,
+          genres: [],
+          pageCount: null,
+          publishedYear: null,
+          openLibraryKey: null,
+        };
+      }
+      return null;
+    }
 
-    // Inspect child editions to prioritize an English ('eng') cover over foreign translations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const editions: any[] = doc.editions?.docs || [];
-    const engEdition = editions.find(
-      (e) => e.cover_i && (e.language?.includes("eng") || e.language?.includes("en"))
-    );
-
-    const coverId = engEdition?.cover_i || doc.cover_i;
+    // Inspect child editions for cover only if 3-tier cover wasn't found
+    let finalCoverUrl = coverResult.coverUrl;
+    if (!finalCoverUrl) {
+      const editions: any[] = doc.editions?.docs || [];
+      const engEdition = editions.find(
+        (e) => e.cover_i && (e.language?.includes("eng") || e.language?.includes("en"))
+      );
+      const rawCoverId = engEdition?.cover_i || doc.cover_i;
+      const olCover = getCoverUrl(rawCoverId);
+      if (!isBadCoverUrl(olCover)) {
+        finalCoverUrl = olCover;
+      }
+    }
 
     return {
       title: doc.title || title,
       author: doc.author_name?.[0] || author,
-      coverUrl: getCoverUrl(coverId),
+      coverUrl: finalCoverUrl,
       description: null,
       genres: (doc.subject || []).slice(0, 5),
       pageCount: doc.number_of_pages_median || null,

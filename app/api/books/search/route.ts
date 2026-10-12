@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isBadCoverUrl } from "@/services/books/cover-service";
 
 export const dynamic = "force-dynamic";
 
@@ -89,9 +90,9 @@ export async function GET(request: NextRequest) {
       const isbn13 = isbns.find((i) => i.replace(/-/g, "").length === 13) || null;
       const isbn10 = isbns.find((i) => i.replace(/-/g, "").length === 10) || isbns[0] || null;
 
-      if (!coverUrl && (isbn13 || isbn10)) {
-        const isbnToUse = isbn13 || isbn10;
-        coverUrl = `https://covers.openlibrary.org/b/isbn/${isbnToUse}-L.jpg?default=false`;
+      // Reject known bad or screenshot covers
+      if (isBadCoverUrl(coverUrl)) {
+        coverUrl = null;
       }
 
       // 3. First sentence / snippet preview

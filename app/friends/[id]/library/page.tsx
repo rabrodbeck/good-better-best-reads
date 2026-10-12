@@ -60,6 +60,78 @@ interface LibraryStats {
 type ShelfFilter = "all" | "read" | "to-read" | "currently-reading" | "did-not-finish";
 type SortOption = "rating-desc" | "title-asc" | "author-asc" | "date-read-desc";
 
+function FriendBookCover({
+  coverUrl,
+  title,
+  author,
+  priority,
+}: {
+  coverUrl?: string | null;
+  title: string;
+  author: string;
+  priority?: boolean;
+}) {
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [coverUrl]);
+
+  // If coverUrl is an Open Library medium image, upgrade to large for retina display
+  const optimizedCoverUrl = React.useMemo(() => {
+    if (!coverUrl) return null;
+    return coverUrl.replace(/-M\.jpg(\?.*)?$/, "-L.jpg$1");
+  }, [coverUrl]);
+
+  // Speculative ISBN fallbacks bypass Next.js image proxy to prevent 404 upstream error logs
+  const isSpeculativeIsbn = optimizedCoverUrl?.includes("/b/isbn/") ?? false;
+
+  if (optimizedCoverUrl && !imgError) {
+    return (
+      <Image
+        src={optimizedCoverUrl}
+        alt={`Cover of ${title}`}
+        fill
+        priority={priority}
+        className="object-cover transition-transform group-hover:scale-105 duration-200"
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+        unoptimized={isSpeculativeIsbn}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="relative p-3 text-center flex flex-col items-center justify-between h-full w-full bg-gradient-to-br from-card via-muted/50 to-card/90 select-none overflow-hidden border border-border/30">
+      {/* Subtle book spine indicator */}
+      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-r from-border/80 via-primary/30 to-transparent pointer-events-none" />
+
+      {/* Top Header */}
+      <div className="w-full flex items-center justify-center pt-1.5">
+        <span className="text-[9px] font-mono tracking-widest text-muted-foreground/60 uppercase">
+          GoodBetterBest
+        </span>
+      </div>
+
+      {/* Book Title & Author in Center */}
+      <div className="my-auto px-1">
+        <span className="text-xs font-bold text-foreground line-clamp-3 leading-snug tracking-tight">
+          {title}
+        </span>
+        <div className="w-6 h-px bg-primary/40 mx-auto my-2" />
+        <span className="text-[10px] text-muted-foreground line-clamp-1 font-medium">
+          {author}
+        </span>
+      </div>
+
+      {/* Bottom Footer Accent */}
+      <div className="w-full pb-1 flex items-center justify-center">
+        <ImageOff className="size-3 text-muted-foreground/40" />
+      </div>
+    </div>
+  );
+}
+
 export default function FriendLibraryPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -172,7 +244,7 @@ export default function FriendLibraryPage() {
           <div className="flex items-center gap-3">
             <div className="relative size-12 rounded-full overflow-hidden bg-primary/10 text-primary font-bold flex items-center justify-center text-base border border-border/60 shrink-0">
               {owner?.avatar_url ? (
-                <Image src={owner.avatar_url} alt={friendName} fill className="object-cover" />
+                <Image src={owner.avatar_url} alt={friendName} fill sizes="48px" className="object-cover" />
               ) : (
                 <span>{friendName.charAt(0).toUpperCase()}</span>
               )}
@@ -318,22 +390,11 @@ export default function FriendLibraryPage() {
                 <div>
                   {/* Cover */}
                   <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
-                    {book.cover_url ? (
-                      <Image
-                        src={book.cover_url}
-                        alt={book.title}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105 duration-200"
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full p-2 text-center text-muted-foreground/60">
-                        <ImageOff className="size-6 mb-1" />
-                        <span className="text-[10px] line-clamp-2 font-semibold text-foreground/80">
-                          {book.title}
-                        </span>
-                      </div>
-                    )}
+                    <FriendBookCover
+                      coverUrl={book.cover_url}
+                      title={book.title}
+                      author={book.author}
+                    />
                   </div>
 
                   {/* Info */}

@@ -10,12 +10,15 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const maxDuration = 60; // Allow sufficient time for AI taste extraction
 
+import { resolveBookCover, isBadCoverUrl } from "@/services/books/cover-service";
+
 interface CatalogBookSummary {
     id: string;
     title: string;
     author: string;
     isbn: string | null;
     isbn13: string | null;
+    cover_url?: string | null;
 }
 
 /**
@@ -39,7 +42,7 @@ async function fetchBatchMatchingBooks(
         const chunk = isbn13List.slice(i, i + QUERY_CHUNK);
         const { data } = await supabase
             .from("books")
-            .select("id, title, author, isbn, isbn13")
+            .select("id, title, author, isbn, isbn13, cover_url")
             .in("isbn13", chunk);
         for (const b of data || []) matchedBooksMap.set(b.id, b);
     }
@@ -49,7 +52,7 @@ async function fetchBatchMatchingBooks(
         const chunk = isbnList.slice(i, i + QUERY_CHUNK);
         const { data } = await supabase
             .from("books")
-            .select("id, title, author, isbn, isbn13")
+            .select("id, title, author, isbn, isbn13, cover_url")
             .in("isbn", chunk);
         for (const b of data || []) matchedBooksMap.set(b.id, b);
     }
@@ -59,7 +62,7 @@ async function fetchBatchMatchingBooks(
         const chunk = titleList.slice(i, i + QUERY_CHUNK);
         const { data } = await supabase
             .from("books")
-            .select("id, title, author, isbn, isbn13")
+            .select("id, title, author, isbn, isbn13, cover_url")
             .in("title", chunk);
         for (const b of data || []) matchedBooksMap.set(b.id, b);
     }
@@ -163,7 +166,20 @@ export async function POST(req: Request) {
         }
 
         // Filter only genuinely new books to insert
-        const newBooksToInsert = [];
+        interface NewBookCandidate {
+            title: string;
+            author: string;
+            isbn: string | null;
+            isbn13: string | null;
+            goodreadsId: string | null;
+            cover_url: string | null;
+            page_count: number | null;
+            published_year: number | null;
+            description: string | null;
+            genres: string[];
+        }
+
+        const newBooksToInsert: NewBookCandidate[] = [];
         const seenInBatch = new Set<string>();
 
         for (const b of books) {
@@ -177,19 +193,13 @@ export async function POST(req: Request) {
             if (!exists) {
                 seenInBatch.add(key);
 
-                let coverUrl: string | null = null;
-                if (b.isbn13) {
-                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn13}-L.jpg?default=false`;
-                } else if (b.isbn) {
-                    coverUrl = `https://covers.openlibrary.org/b/isbn/${b.isbn}-L.jpg?default=false`;
-                }
-
                 newBooksToInsert.push({
                     title: b.cleanTitle,
                     author: b.author,
                     isbn: b.isbn,
                     isbn13: b.isbn13,
-                    cover_url: coverUrl,
+                    goodreadsId: b.goodreadsId || null,
+                    cover_url: null,
                     page_count: b.pageCount,
                     published_year: b.yearPublished,
                     description: null,
@@ -198,29 +208,84 @@ export async function POST(req: Request) {
             }
         }
 
-        // For books without an ISBN, perform English-first title+author search
-        for (const book of newBooksToInsert) {
-            if (!book.cover_url) {
-                try {
-                    const enriched = await enrichBookDetails(book.title, book.author);
-                    if (enriched?.coverUrl) {
-                        book.cover_url = enriched.coverUrl;
-                    }
-                } catch {
-                    // Non-fatal if single search times out
-                }
+        // Concurrently resolve covers using the 3-tier engine (Goodreads -> Google Books -> Open Library)
+        const CONCURRENCY = 5;
+        if (newBooksToInsert.length > 0) {
+            for (let i = 0; i < newBooksToInsert.length; i += CONCURRENCY) {
+                const chunk = newBooksToInsert.slice(i, i + CONCURRENCY);
+                await Promise.all(
+                    chunk.map(async (book) => {
+                        try {
+                            const { coverUrl } = await resolveBookCover({
+                                title: book.title,
+                                author: book.author,
+                                isbn: book.isbn,
+                                isbn13: book.isbn13,
+                                goodreadsId: book.goodreadsId,
+                            });
+                            if (coverUrl && !isBadCoverUrl(coverUrl)) {
+                                book.cover_url = coverUrl;
+                            }
+                        } catch {
+                            // Non-fatal if cover fetch fails
+                        }
+                    })
+                );
+            }
+        }
+
+        // Also repair existing catalog books in this batch that have missing or bad screenshot covers
+        const existingNeedingRepair = existingBooks.filter(
+            (eb) => !eb.cover_url || isBadCoverUrl(eb.cover_url)
+        );
+        if (existingNeedingRepair.length > 0) {
+            for (let i = 0; i < existingNeedingRepair.length; i += CONCURRENCY) {
+                const chunk = existingNeedingRepair.slice(i, i + CONCURRENCY);
+                await Promise.all(
+                    chunk.map(async (eb) => {
+                        const matchingInput = books.find(
+                            (b) =>
+                                (eb.isbn13 && b.isbn13 === eb.isbn13) ||
+                                (eb.isbn && b.isbn === eb.isbn) ||
+                                (b.cleanTitle.toLowerCase().trim() === eb.title.toLowerCase().trim() &&
+                                    b.author.toLowerCase().trim() === eb.author.toLowerCase().trim())
+                        );
+                        if (matchingInput) {
+                            try {
+                                const { coverUrl } = await resolveBookCover({
+                                    title: eb.title,
+                                    author: eb.author,
+                                    isbn: eb.isbn,
+                                    isbn13: eb.isbn13,
+                                    goodreadsId: matchingInput.goodreadsId,
+                                });
+                                if (coverUrl && !isBadCoverUrl(coverUrl)) {
+                                    eb.cover_url = coverUrl;
+                                    await supabase
+                                        .from("books")
+                                        .update({ cover_url: coverUrl })
+                                        .eq("id", eb.id);
+                                }
+                            } catch {
+                                // Non-fatal
+                            }
+                        }
+                    })
+                );
             }
         }
 
         const newlyInsertedBooks: CatalogBookSummary[] = [];
         const CHUNK_SIZE = 50;
         if (newBooksToInsert.length > 0) {
-            for (let i = 0; i < newBooksToInsert.length; i += CHUNK_SIZE) {
-                const chunk = newBooksToInsert.slice(i, i + CHUNK_SIZE);
+            // Strip goodreadsId before database insert since it is not a column on books table
+            const booksForDb = newBooksToInsert.map(({ goodreadsId: _gid, ...rest }) => rest);
+            for (let i = 0; i < booksForDb.length; i += CHUNK_SIZE) {
+                const chunk = booksForDb.slice(i, i + CHUNK_SIZE);
                 const { data: inserted, error: insertError } = await supabase
                     .from("books")
                     .insert(chunk)
-                    .select("id, title, author, isbn, isbn13");
+                    .select("id, title, author, isbn, isbn13, cover_url");
 
                 if (insertError) {
                     console.error("Batch books insert error:", insertError);

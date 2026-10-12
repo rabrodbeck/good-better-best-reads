@@ -275,6 +275,7 @@ export default function FriendsPage() {
                               src={friend.avatar_url}
                               alt={friend.display_name}
                               fill
+                              sizes="44px"
                               className="object-cover"
                             />
                           ) : (
@@ -319,6 +320,8 @@ export default function FriendsPage() {
                                 src={currentlyReading.cover_url}
                                 alt={currentlyReading.title}
                                 fill
+                                sizes="28px"
+                                unoptimized={currentlyReading.cover_url.includes("/b/isbn/")}
                                 className="object-cover"
                               />
                             </div>

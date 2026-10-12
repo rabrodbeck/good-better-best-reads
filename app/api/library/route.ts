@@ -91,10 +91,7 @@ export async function GET(req: Request) {
       const isbn13 = book?.isbn13;
       const isbn = book?.isbn;
 
-      const coverUrl =
-        book?.cover_url ||
-        (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg?default=false` : null) ||
-        (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false` : null);
+      const coverUrl = book?.cover_url || null;
 
       return {
         id: ub.id,
@@ -531,10 +528,7 @@ export async function PATCH(request: Request) {
     const isbn13 = book?.isbn13;
     const isbn = book?.isbn;
 
-    const coverUrl =
-      book?.cover_url ||
-      (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg?default=false` : null) ||
-      (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false` : null);
+    const coverUrl = book?.cover_url || null;
 
     const formattedBook = {
       id: updatedRecord.id,

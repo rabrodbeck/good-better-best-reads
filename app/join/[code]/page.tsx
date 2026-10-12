@@ -140,7 +140,7 @@ export default function JoinInvitePage() {
         <div className="flex flex-col items-center">
           <div className="relative size-20 rounded-full overflow-hidden bg-primary/10 text-primary font-bold flex items-center justify-center text-2xl border-4 border-card shadow-md mb-4 shrink-0">
             {inviter.avatarUrl ? (
-              <Image src={inviter.avatarUrl} alt={inviter.displayName} fill className="object-cover" />
+              <Image src={inviter.avatarUrl} alt={inviter.displayName} fill sizes="80px" className="object-cover" />
             ) : (
               <span>{inviter.displayName.charAt(0).toUpperCase()}</span>
             )}
