@@ -254,6 +254,18 @@ export default function LibraryPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Listen for global book additions triggered from Navbar
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<AddedBookItem>;
+      if (customEvent.detail) {
+        handleBookAdded(customEvent.detail);
+      }
+    };
+    window.addEventListener("book-added", handler);
+    return () => window.removeEventListener("book-added", handler);
+  }, []);
+
   // Real-time reactive stats derived directly from books state
   const stats = React.useMemo<LibraryStats | null>(() => {
     if (loading && books.length === 0) return null;
