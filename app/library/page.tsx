@@ -22,6 +22,7 @@ import {
   Send,
   Heart,
   X,
+  BarChart3,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
   ConciergePick,
 } from "@/components/librarian/shelf-concierge-modal";
 import { SeriesTracker } from "@/components/library/series-tracker";
+import { ReadingGoalWidget } from "@/components/goals/reading-goal-widget";
 import { parseSeriesInfo, groupBooksBySeries } from "@/lib/series";
 
 interface BookItem {
@@ -671,6 +673,13 @@ export default function LibraryPage() {
             <span>Export</span>
           </Button>
 
+          <Link href="/insights">
+            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-800 border-purple-500/30">
+              <BarChart3 className="size-4 text-purple-500" />
+              <span>Insights</span>
+            </Button>
+          </Link>
+
           <Link href="/chat">
             <Button size="sm" variant="outline" className="gap-1.5 font-semibold">
               <Sparkles className="size-4" />
@@ -678,6 +687,11 @@ export default function LibraryPage() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Annual Reading Challenge Goal Tracker */}
+      <div className="mb-6">
+        <ReadingGoalWidget compact />
       </div>
 
       {/* Metrics Row */}

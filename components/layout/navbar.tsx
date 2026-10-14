@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BookOpen, Sparkles, Dna, UploadCloud, Users, Plus, Check } from "lucide-react";
+import { BookOpen, Sparkles, Dna, UploadCloud, Users, Plus, Check, BarChart3 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { AuthButton } from "./auth-button";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,13 @@ export function Navbar() {
             className="transition-colors hover:text-foreground"
           >
             My Shelves
+          </Link>
+          <Link
+            href="/insights"
+            className="flex items-center gap-1.5 transition-colors hover:text-foreground"
+          >
+            <BarChart3 className="size-4 text-purple-500" />
+            Insights
           </Link>
           <Link
             href="/friends"

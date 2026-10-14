@@ -18,6 +18,7 @@ import {
   BookOpen,
   Loader2,
   ExternalLink,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -261,6 +262,13 @@ export function ReadingDnaClient() {
             )}
             <span>{downloading ? "Saving PNG..." : "Download PNG"}</span>
           </Button>
+
+          <Link href="/insights">
+            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-xs text-purple-700 dark:text-purple-300 border-purple-500/30">
+              <BarChart3 className="size-3.5 text-purple-500" />
+              <span>Insights</span>
+            </Button>
+          </Link>
 
           <Link href="/chat">
             <Button size="sm" className="gap-1.5 font-semibold text-xs">
