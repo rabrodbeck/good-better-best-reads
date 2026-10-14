@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BookOpen, Sparkles, Dna, UploadCloud, Users, Plus, Check, BarChart3 } from "lucide-react";
+import { BookOpen, BookMarked, Sparkles, Dna, UploadCloud, Users, Plus, Check, BarChart3 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { AuthButton } from "./auth-button";
 import { Button } from "@/components/ui/button";
@@ -74,8 +74,9 @@ export function Navbar() {
           </Link>
           <Link
             href="/library"
-            className="transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 transition-colors hover:text-foreground"
           >
+            <BookMarked className="size-4 text-amber-500" />
             My Shelves
           </Link>
           <Link

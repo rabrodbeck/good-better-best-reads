@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PwaRegister } from "./pwa-register";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(
@@ -25,6 +26,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <QueryClientProvider client={queryClient}>
+        <PwaRegister />
         {children}
       </QueryClientProvider>
     </NextThemesProvider>

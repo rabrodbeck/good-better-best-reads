@@ -23,6 +23,8 @@ import {
   Heart,
   X,
   BarChart3,
+  Share2,
+  WifiOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,8 @@ import {
 import { SeriesTracker } from "@/components/library/series-tracker";
 import { ReadingGoalWidget } from "@/components/goals/reading-goal-widget";
 import { parseSeriesInfo, groupBooksBySeries } from "@/lib/series";
+import { shareBook, shareLibrary } from "@/lib/share";
+import { getOfflineLibrary, saveOfflineLibrary, isDeviceOffline } from "@/lib/offline-storage";
 
 interface BookItem {
   id: string;
@@ -265,15 +269,40 @@ export default function LibraryPage() {
   // Shelf Concierge State (Issue #39)
   const [isConciergeModalOpen, setIsConciergeModalOpen] = React.useState(false);
 
+  // Offline Mode State (Issue #45)
+  const [isOfflineMode, setIsOfflineMode] = React.useState(false);
+
   React.useEffect(() => {
+    // 1. Immediate offline cache hydration check
+    const cached = getOfflineLibrary<BookItem>();
+    if (cached?.books?.length) {
+      setBooks((prev) => (prev.length === 0 ? cached.books : prev));
+      setLoading(false);
+    }
+
+    if (isDeviceOffline()) {
+      setIsOfflineMode(true);
+    }
+
+    // 2. Network fetch
     fetch("/api/library")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         if (data?.books) {
           setBooks(data.books);
+          saveOfflineLibrary(data.books);
+          setIsOfflineMode(false);
+        } else if (data?.error) {
+          setIsOfflineMode(true);
         }
       })
-      .catch((err) => console.error("Could not fetch library:", err))
+      .catch((err) => {
+        console.warn("Could not fetch fresh library, relying on offline cache:", err);
+        setIsOfflineMode(true);
+      })
       .finally(() => setLoading(false));
 
     // Fetch incoming friend recommendations
@@ -587,6 +616,20 @@ export default function LibraryPage() {
   }
 
   if (books.length === 0) {
+    if (isOfflineMode) {
+      return (
+        <div className="container mx-auto flex min-h-[65vh] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 mb-4">
+            <WifiOff className="size-7" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight">You're Currently Offline</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">
+            No cached shelves were found on this device. Please reconnect to the internet to sync your personal library.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="container mx-auto flex min-h-[65vh] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
@@ -637,6 +680,12 @@ export default function LibraryPage() {
             <Badge variant="secondary" className="text-[10px]">
               {books.length} Total Titles
             </Badge>
+            {isOfflineMode && (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 gap-1 font-semibold">
+                <WifiOff className="size-3 text-amber-600 dark:text-amber-400" />
+                <span>Offline Cache</span>
+              </Badge>
+            )}
           </div>
           <h1 className="text-3xl font-black tracking-tight text-foreground">
             My Reading Shelves
@@ -661,6 +710,23 @@ export default function LibraryPage() {
           >
             <Plus className="size-4" />
             <span>Add Book</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              const res = await shareLibrary();
+              if (res.message && res.method !== "none") {
+                setToastMessage(res.message);
+                setTimeout(() => setToastMessage(null), 3000);
+              }
+            }}
+            className="gap-1.5 font-semibold"
+            title="Share your reading shelves"
+          >
+            <Share2 className="size-4" />
+            <span className="hidden sm:inline">Share</span>
           </Button>
 
           <Button
@@ -1087,23 +1153,41 @@ export default function LibraryPage() {
                     </span>
                   ) : null}
 
-                  <button
-                    type="button"
-                    title="Recommend to a friend"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRecommendBook({
-                        id: book.book_id,
-                        title: book.title,
-                        author: book.author,
-                        cover_url: book.cover_url,
-                      });
-                      setIsRecommendModalOpen(true);
-                    }}
-                    className="p-1 -mr-1 rounded-sm text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <Send className="size-3" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="Share book via native share or link"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const res = await shareBook(book);
+                        if (res.message && res.method !== "none") {
+                          setToastMessage(res.message);
+                          setTimeout(() => setToastMessage(null), 3000);
+                        }
+                      }}
+                      className="p-1 rounded-sm text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Share2 className="size-3" />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Recommend to a friend"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRecommendBook({
+                          id: book.book_id,
+                          title: book.title,
+                          author: book.author,
+                          cover_url: book.cover_url,
+                        });
+                        setIsRecommendModalOpen(true);
+                      }}
+                      className="p-1 -mr-1 rounded-sm text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Send className="size-3" />
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

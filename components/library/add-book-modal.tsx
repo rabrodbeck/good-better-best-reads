@@ -17,6 +17,7 @@ import {
   Loader2,
   X,
   Plus,
+  Camera,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BarcodeScannerModal } from "@/components/library/barcode-scanner-modal";
 
 export interface SearchResultItem {
   key: string;
@@ -99,6 +101,7 @@ export function AddBookModal({
   const [isSearching, setIsSearching] = React.useState(false);
   const [results, setResults] = React.useState<SearchResultItem[]>([]);
   const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = React.useState(false);
 
   // Selected book state
   const [selectedBook, setSelectedBook] = React.useState<SearchResultItem | null>(null);
@@ -234,7 +237,8 @@ export function AddBookModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl md:max-w-2xl max-h-[88vh] flex flex-col p-6 overflow-hidden">
         {step === 1 ? (
           <>
@@ -253,25 +257,37 @@ export function AddBookModal({
               </DialogDescription>
             </DialogHeader>
 
-            {/* Search Input Bar */}
-            <div className="relative shrink-0 mt-1 mb-3">
-              <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search title, author, or ISBN (e.g. Dune, 9780441013593)..."
-                className="pl-9 pr-9 h-10 text-xs bg-background/80"
-                autoFocus
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-4" />
-                </button>
-              )}
+            {/* Search Input Bar + Barcode Scanner Action */}
+            <div className="flex items-center gap-2 shrink-0 mt-1 mb-3">
+              <div className="relative flex-1">
+                <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search title, author, or ISBN (e.g. Dune, 9780441013593)..."
+                  className="pl-9 pr-9 h-10 text-xs bg-background/80"
+                  autoFocus
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsScannerOpen(true)}
+                className="h-10 px-3 shrink-0 gap-1.5 text-xs font-semibold hover:border-primary/50"
+                title="Scan physical book barcode with camera"
+              >
+                <Camera className="size-4 text-primary" />
+                <span className="hidden sm:inline">Scan Barcode</span>
+              </Button>
             </div>
 
             {/* Results or Helper View */}
@@ -665,5 +681,14 @@ export function AddBookModal({
         )}
       </DialogContent>
     </Dialog>
+
+    <BarcodeScannerModal
+      open={isScannerOpen}
+      onOpenChange={setIsScannerOpen}
+      onScanSuccess={(isbn) => {
+        setQuery(isbn);
+      }}
+    />
+    </>
   );
 }

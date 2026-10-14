@@ -20,6 +20,8 @@ import {
   Heart,
   Zap,
   BookmarkCheck,
+  Share2,
+  Check,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ import {
   BookToRecommend,
 } from "@/components/friends/recommend-book-modal";
 import { parseSeriesInfo } from "@/lib/series";
+import { shareBook } from "@/lib/share";
 
 interface BookItem {
   id: string;
@@ -166,6 +169,7 @@ export default function FriendLibraryPage() {
   // Recommendations modal state
   const [recommendBook, setRecommendBook] = React.useState<BookToRecommend | null>(null);
   const [isRecommendModalOpen, setIsRecommendModalOpen] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   // Filters
   const [search, setSearch] = React.useState("");
@@ -642,24 +646,43 @@ export default function FriendLibraryPage() {
                     </p>
                   )}
 
-                  {/* Recommend button (Issue #38) */}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setRecommendBook({
-                        id: book.book_id,
-                        title: book.title,
-                        author: book.author,
-                        cover_url: book.cover_url,
-                      });
-                      setIsRecommendModalOpen(true);
-                    }}
-                    className="w-full h-7 text-[11px] gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <Send className="size-3" />
-                    <span>Recommend</span>
-                  </Button>
+                  {/* Action buttons: Share & Recommend */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        const res = await shareBook(book);
+                        if (res.message && res.method !== "none") {
+                          setToastMessage(res.message);
+                          setTimeout(() => setToastMessage(null), 3000);
+                        }
+                      }}
+                      className="flex-1 h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground border border-border/40 hover:bg-muted/40 transition-colors"
+                      title="Share book via native share or link"
+                    >
+                      <Share2 className="size-3" />
+                      <span>Share</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setRecommendBook({
+                          id: book.book_id,
+                          title: book.title,
+                          author: book.author,
+                          cover_url: book.cover_url,
+                        });
+                        setIsRecommendModalOpen(true);
+                      }}
+                      className="flex-1 h-7 text-[11px] gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Send className="size-3" />
+                      <span>Recommend</span>
+                    </Button>
+                  </div>
                 </div>
               </Card>
             );
@@ -673,6 +696,14 @@ export default function FriendLibraryPage() {
         onOpenChange={setIsRecommendModalOpen}
         book={recommendBook}
       />
+
+      {/* Toast Alert Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-card/95 backdrop-blur-md px-4 py-3 text-sm text-foreground shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="size-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }
