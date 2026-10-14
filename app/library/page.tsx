@@ -19,6 +19,9 @@ import {
   Check,
   ChevronDown,
   Download,
+  Send,
+  Heart,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddBookModal, AddedBookItem } from "@/components/library/add-book-modal";
 import { ExportModal } from "@/components/library/export-modal";
+import {
+  RecommendBookModal,
+  BookToRecommend,
+} from "@/components/friends/recommend-book-modal";
 
 interface BookItem {
   id: string;
@@ -55,7 +62,7 @@ interface LibraryStats {
   avgRating: string | null;
 }
 
-type ShelfFilter = "all" | "read" | "to-read" | "currently-reading";
+type ShelfFilter = "all" | "read" | "to-read" | "currently-reading" | "recommended";
 type SortOption = "rating-desc" | "title-asc" | "author-asc" | "date-read-desc";
 
 function LibraryBookCover({
@@ -242,6 +249,11 @@ export default function LibraryPage() {
   const [minRating, setMinRating] = React.useState<number | null>(null);
   const [sortBy, setSortBy] = React.useState<SortOption>("rating-desc");
 
+  // Friend Recommendations State (Issue #38)
+  const [recommendations, setRecommendations] = React.useState<any[]>([]);
+  const [recommendBook, setRecommendBook] = React.useState<BookToRecommend | null>(null);
+  const [isRecommendModalOpen, setIsRecommendModalOpen] = React.useState(false);
+
   React.useEffect(() => {
     fetch("/api/library")
       .then((res) => res.json())
@@ -252,7 +264,59 @@ export default function LibraryPage() {
       })
       .catch((err) => console.error("Could not fetch library:", err))
       .finally(() => setLoading(false));
+
+    // Fetch incoming friend recommendations
+    fetch("/api/friends/recommendations")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.received) {
+          setRecommendations(
+            data.received.filter((r: any) => r.status === "unread" || r.status === "read")
+          );
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleAcceptRecommendation = async (rec: any) => {
+    try {
+      const res = await fetch(`/api/friends/recommendations/${rec.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept" }),
+      });
+      if (res.ok) {
+        setRecommendations((prev) => prev.filter((r) => r.id !== rec.id));
+        setToastMessage(`Added "${rec.book.title}" to your Want to Read shelf!`);
+        setTimeout(() => setToastMessage(null), 3500);
+        // Refresh library to include the new book
+        fetch("/api/library")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.books) setBooks(data.books);
+          });
+      }
+    } catch (err) {
+      console.error("Failed to accept recommendation:", err);
+    }
+  };
+
+  const handleDismissRecommendation = async (recId: string) => {
+    try {
+      const res = await fetch(`/api/friends/recommendations/${recId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dismiss" }),
+      });
+      if (res.ok) {
+        setRecommendations((prev) => prev.filter((r) => r.id !== recId));
+        setToastMessage("Recommendation dismissed.");
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error("Failed to dismiss recommendation:", err);
+    }
+  };
 
   // Listen for global book additions triggered from Navbar
   React.useEffect(() => {
@@ -651,9 +715,23 @@ export default function LibraryPage() {
               onClick={() => setActiveShelf("currently-reading")}
               className="h-8 text-xs px-2.5"
             >
-              Reading ({stats.currentlyReading})
+              Currently Reading ({stats.currentlyReading})
             </Button>
           ) : null}
+
+          <Button
+            variant={activeShelf === "recommended" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveShelf("recommended")}
+            className={`h-8 text-xs px-2.5 gap-1.5 ${
+              activeShelf === "recommended"
+                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                : "text-amber-800 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+            }`}
+          >
+            <Sparkles className="size-3 text-amber-600 dark:text-amber-300" />
+            <span>From Friends {recommendations.length > 0 ? `(${recommendations.length})` : ""}</span>
+          </Button>
         </div>
 
         {/* Sort Selector */}
@@ -709,8 +787,97 @@ export default function LibraryPage() {
         </button>
       </div>
 
-      {/* Book Grid */}
-      {filteredBooks.length === 0 ? (
+      {/* Book Grid or Recommendations Grid */}
+      {activeShelf === "recommended" ? (
+        recommendations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-16 text-center border border-dashed border-border/60 rounded-2xl bg-card/20 space-y-3">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+              <Sparkles className="size-6" />
+            </div>
+            <h3 className="text-base font-bold text-foreground">No Friend Recommendations Yet</h3>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              When reading buddies recommend books to you, they will appear here with their personal notes!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {recommendations.map((rec) => (
+              <Card
+                key={rec.id}
+                className="overflow-hidden border-border/60 bg-card/70 backdrop-blur-xs shadow-xs hover:border-amber-500/40 transition-all flex flex-col justify-between"
+              >
+                <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+                  <div>
+                    {/* Sender Info */}
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/40">
+                      <div className="relative size-7 rounded-full overflow-hidden bg-primary/10 text-primary font-bold flex items-center justify-center text-xs border border-border/50 shrink-0">
+                        {rec.sender?.avatar_url ? (
+                          <Image src={rec.sender.avatar_url} alt={rec.sender.display_name} fill sizes="28px" className="object-cover" />
+                        ) : (
+                          <span>{(rec.sender?.display_name || "F").charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {rec.sender?.display_name || "Friend"}
+                        </p>
+                        <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">Recommended for you</span>
+                      </div>
+                    </div>
+
+                    {/* Book Preview */}
+                    <div className="flex items-start gap-3">
+                      <div className="relative aspect-[2/3] w-14 rounded-xs overflow-hidden bg-muted/60 border border-border/40 shrink-0">
+                        <LibraryBookCover
+                          coverUrl={rec.book?.cover_url}
+                          title={rec.book?.title || "Untitled"}
+                          author={rec.book?.author || "Unknown"}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-2">
+                          {rec.book?.title}
+                        </h4>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {rec.book?.author}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Personal Note */}
+                    {rec.note && (
+                      <div className="mt-3 p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-500/5 border border-amber-300/60 dark:border-amber-500/20 text-xs text-foreground/90 italic">
+                        &ldquo;{rec.note}&rdquo;
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleAcceptRecommendation(rec)}
+                      className="flex-1 text-xs gap-1.5 font-semibold bg-primary text-primary-foreground"
+                    >
+                      <Check className="size-3.5" />
+                      <span>Add to Want to Read</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDismissRecommendation(rec.id)}
+                      className="text-xs text-muted-foreground hover:text-destructive p-2"
+                      title="Dismiss recommendation"
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : filteredBooks.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-border/60 rounded-2xl bg-card/20">
           <Search className="size-8 text-muted-foreground mb-3 opacity-40" />
           <h3 className="text-base font-semibold">No books match your filters</h3>
@@ -788,6 +955,24 @@ export default function LibraryPage() {
                       <span>{book.page_count}p</span>
                     </span>
                   ) : null}
+
+                  <button
+                    type="button"
+                    title="Recommend to a friend"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRecommendBook({
+                        id: book.book_id,
+                        title: book.title,
+                        author: book.author,
+                        cover_url: book.cover_url,
+                      });
+                      setIsRecommendModalOpen(true);
+                    }}
+                    className="p-1 -mr-1 rounded-sm text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Send className="size-3" />
+                  </button>
                 </div>
               </CardContent>
             </Card>
@@ -811,6 +996,17 @@ export default function LibraryPage() {
         onExportSuccess={(fmt) => {
           setToastMessage(`Exported library as .${fmt}!`);
           setTimeout(() => setToastMessage(null), 3000);
+        }}
+      />
+
+      {/* Recommend Book to Friend Modal (Issue #38) */}
+      <RecommendBookModal
+        open={isRecommendModalOpen}
+        onOpenChange={setIsRecommendModalOpen}
+        book={recommendBook}
+        onRecommendationSent={() => {
+          setToastMessage(`Sent recommendation for "${recommendBook?.title}"!`);
+          setTimeout(() => setToastMessage(null), 3500);
         }}
       />
 

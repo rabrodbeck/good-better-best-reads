@@ -141,10 +141,10 @@ export default function FriendComparePage() {
           {/* Center Compatibility Gauge */}
           <div className="flex flex-col items-center justify-center text-center px-4 py-2 rounded-2xl bg-muted/40 border border-border/50">
             <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1 mb-1">
-              <Sparkles className="size-3 text-amber-400" />
+              <Sparkles className="size-3 text-amber-600 dark:text-amber-400" />
               <span>Taste Blend</span>
             </span>
-            <div className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-blue-400">
+            <div className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 dark:from-emerald-400 dark:via-teal-300 dark:to-blue-400">
               {stats.tasteMatchPercentage}%
             </div>
             <span className="text-[11px] text-muted-foreground mt-0.5 font-medium">
@@ -159,11 +159,11 @@ export default function FriendComparePage() {
                 Buddy
               </span>
               <h3 className="text-base font-bold text-foreground">{friend.displayName}</h3>
-              <Badge variant="outline" className="text-[10px] mt-1 border-emerald-500/30 text-emerald-400">
+              <Badge variant="outline" className="text-[10px] mt-1 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-400 bg-emerald-50/60 dark:bg-transparent">
                 {friend.tasteArchetype}
               </Badge>
             </div>
-            <div className="relative size-14 rounded-full overflow-hidden bg-emerald-500/10 text-emerald-400 font-bold flex items-center justify-center text-lg border-2 border-emerald-500/30 shrink-0">
+            <div className="relative size-14 rounded-full overflow-hidden bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold flex items-center justify-center text-lg border-2 border-emerald-300 dark:border-emerald-500/30 shrink-0">
               {friend.avatarUrl ? (
                 <Image src={friend.avatarUrl} alt={friend.displayName} fill sizes="56px" className="object-cover" />
               ) : (
@@ -179,7 +179,7 @@ export default function FriendComparePage() {
         {/* Pacing & Tone Card */}
         <Card className="border-border/60 bg-card/60 p-5 space-y-4">
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Zap className="size-3.5 text-amber-400" />
+            <Zap className="size-3.5 text-amber-600 dark:text-amber-400" />
             <span>Pacing & Emotional Tone</span>
           </h4>
 
@@ -195,7 +195,7 @@ export default function FriendComparePage() {
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground block">{friend.displayName}:</span>
-                  <span className="font-medium text-emerald-400">{tasteComparison.friendPacing || "—"}</span>
+                  <span className="font-medium text-emerald-700 dark:text-emerald-400">{tasteComparison.friendPacing || "—"}</span>
                 </div>
               </div>
             </div>
@@ -211,7 +211,7 @@ export default function FriendComparePage() {
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground block">{friend.displayName}:</span>
-                  <span className="font-medium text-emerald-400">{tasteComparison.friendTone || "—"}</span>
+                  <span className="font-medium text-emerald-700 dark:text-emerald-400">{tasteComparison.friendTone || "—"}</span>
                 </div>
               </div>
             </div>
@@ -221,14 +221,14 @@ export default function FriendComparePage() {
         {/* Trope Overlap Card */}
         <Card className="border-border/60 bg-card/60 p-5 space-y-4">
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Heart className="size-3.5 text-rose-400" />
+            <Heart className="size-3.5 text-rose-500 dark:text-rose-400" />
             <span>Trope Overlap Analysis</span>
           </h4>
 
           <div className="space-y-3">
             {/* Shared Tropes */}
             <div>
-              <span className="text-[11px] font-semibold text-emerald-400 block mb-1.5">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 block mb-1.5">
                 Mutual Loved Tropes ({tasteComparison.sharedTropes.length})
               </span>
               {tasteComparison.sharedTropes.length === 0 ? (
@@ -236,7 +236,7 @@ export default function FriendComparePage() {
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {tasteComparison.sharedTropes.map((t) => (
-                    <Badge key={t} className="bg-emerald-500/10 border-emerald-500/30 text-emerald-300 text-xs gap-1">
+                    <Badge key={t} className="bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs gap-1">
                       <Check className="size-3" />
                       <span>{t}</span>
                     </Badge>
@@ -261,7 +261,7 @@ export default function FriendComparePage() {
                 <span className="text-[10px] text-muted-foreground font-semibold block mb-1">{friend.displayName}&apos;s:</span>
                 <div className="flex flex-wrap gap-1">
                   {tasteComparison.uniqueToFriendTropes.slice(0, 3).map((t) => (
-                    <Badge key={t} variant="outline" className="text-[10px] text-emerald-400/90">
+                    <Badge key={t} variant="outline" className="text-[10px] text-emerald-800 dark:text-emerald-400/90 border-emerald-300 dark:border-border">
                       {t}
                     </Badge>
                   ))}
@@ -274,14 +274,14 @@ export default function FriendComparePage() {
 
       {/* Dealbreaker Clash Warning (if applicable) */}
       {tasteComparison.dealbreakerClashes.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5 p-4 mb-8">
+        <Card className="border-amber-300 dark:border-amber-500/30 bg-amber-50/90 dark:bg-amber-500/5 p-4 mb-8">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="size-5 text-amber-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+              <h4 className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
                 Dealbreaker Clash Detected
               </h4>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-0.5">
                 {tasteComparison.dealbreakerClashes.map((c, idx) => (
                   <span key={idx} className="block mt-1">
                     &bull; <strong>{c.trope}</strong> is loved by {c.lovedBy === "me" ? "you" : friend.displayName}, but is a strict dealbreaker for {c.dealbreakerFor === "me" ? "you" : friend.displayName}!
@@ -346,11 +346,11 @@ export default function FriendComparePage() {
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-muted-foreground">You:</span>
-                      <span className="font-bold text-amber-400">{book.myRating ? `${book.myRating}★` : "—"}</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">{book.myRating ? `${book.myRating}★` : "—"}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-muted-foreground">{friend.displayName}:</span>
-                      <span className="font-bold text-emerald-400">{book.friendRating ? `${book.friendRating}★` : "—"}</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">{book.friendRating ? `${book.friendRating}★` : "—"}</span>
                     </div>
                   </div>
                 </div>
@@ -366,7 +366,7 @@ export default function FriendComparePage() {
         <Card className="border-border/60 bg-card/60 p-5">
           <div className="mb-3">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <Sparkles className="size-4 text-emerald-400" />
+              <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
               <span>Recommendations from {friend.displayName}</span>
             </h4>
             <p className="text-[11px] text-muted-foreground">

@@ -160,6 +160,37 @@ export interface Database {
           updated_at?: string;
         };
       };
+      book_recommendations: {
+        Row: {
+          id: string;
+          sender_id: string;
+          recipient_id: string;
+          book_id: string;
+          note: string | null;
+          status: "unread" | "read" | "accepted" | "dismissed";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          recipient_id: string;
+          book_id: string;
+          note?: string | null;
+          status?: "unread" | "read" | "accepted" | "dismissed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          sender_id?: string;
+          recipient_id?: string;
+          book_id?: string;
+          note?: string | null;
+          status?: "unread" | "read" | "accepted" | "dismissed";
+          updated_at?: string;
+        };
+      };
     };
     Functions: {
       match_books: {

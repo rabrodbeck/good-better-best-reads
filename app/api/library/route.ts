@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateBookEmbedding } from "@/services/taste/embedding-generator";
+import { calculateTasteOverlap, UserBookData } from "@/lib/friends";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export async function GET(req: Request) {
       .from("user_books")
       .select(`
         id,
+        book_id,
         shelf,
         rating,
         date_read,
@@ -130,13 +132,81 @@ export async function GET(req: Request) {
     };
 
     let owner = null;
-    if (!isOwnLibrary) {
-      const { data: ownerProfile } = await supabase
-        .from("profiles")
-        .select("id, display_name, avatar_url, taste_archetype")
-        .eq("id", libraryOwnerId)
-        .maybeSingle();
-      owner = ownerProfile;
+    let viewerBooksMap: Record<string, { shelf: string; rating: number | null }> | null = null;
+    let tasteMatchPercentage: number | null = null;
+    let sharedReadsCount = 0;
+
+    if (!isOwnLibrary && requestingUserId) {
+      const [ownerProfileRes, viewerBooksRes, tasteRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url, taste_archetype")
+          .eq("id", libraryOwnerId)
+          .maybeSingle(),
+        supabase
+          .from("user_books")
+          .select(`
+            id,
+            book_id,
+            shelf,
+            rating,
+            books (
+              id,
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .eq("user_id", requestingUserId),
+        supabase
+          .from("taste_profiles")
+          .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers")
+          .in("user_id", [requestingUserId, libraryOwnerId]),
+      ]);
+
+      owner = ownerProfileRes.data;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawViewerBooks = (viewerBooksRes.data || []) as any[];
+      // Build map of viewer's books for quick overlap checks
+      const vMap: Record<string, { shelf: string; rating: number | null }> = {};
+      for (const vb of rawViewerBooks) {
+        const bId = vb.book_id || (Array.isArray(vb.books) ? vb.books[0]?.id : vb.books?.id);
+        if (bId) {
+          vMap[bId] = { shelf: vb.shelf, rating: vb.rating ? Number(vb.rating) : null };
+        }
+      }
+      viewerBooksMap = vMap;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const normalizedViewerBooks: UserBookData[] = rawViewerBooks.map((vb) => {
+        const b = Array.isArray(vb.books) ? vb.books[0] : vb.books;
+        return {
+          id: vb.id,
+          book_id: vb.book_id || b?.id || "",
+          shelf: vb.shelf,
+          rating: vb.rating ? Number(vb.rating) : null,
+          books: b ? { id: b.id, title: b.title, author: b.author, cover_url: b.cover_url } : null,
+        };
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const normalizedFriendBooks: UserBookData[] = ((rawUserBooks || []) as any[]).map((fb) => {
+        const b = Array.isArray(fb.books) ? fb.books[0] : fb.books;
+        return {
+          id: fb.id,
+          book_id: fb.book_id || b?.id || "",
+          shelf: fb.shelf,
+          rating: fb.rating ? Number(fb.rating) : null,
+          books: b ? { id: b.id, title: b.title, author: b.author, cover_url: b.cover_url } : null,
+        };
+      });
+
+      const myTaste = tasteRes.data?.find((t) => t.user_id === requestingUserId) || null;
+      const friendTaste = tasteRes.data?.find((t) => t.user_id === libraryOwnerId) || null;
+      const overlap = calculateTasteOverlap(myTaste, friendTaste, normalizedViewerBooks, normalizedFriendBooks);
+      tasteMatchPercentage = overlap.stats.tasteMatchPercentage;
+      sharedReadsCount = overlap.stats.totalSharedReads;
     }
 
     return NextResponse.json({
@@ -144,6 +214,9 @@ export async function GET(req: Request) {
       stats,
       isOwnLibrary,
       owner,
+      viewerBooksMap,
+      tasteMatchPercentage,
+      sharedReadsCount,
     });
   } catch (error) {
     console.error("Library API Error:", error);

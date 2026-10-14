@@ -39,6 +39,7 @@ interface FriendItem {
     author: string;
     cover_url: string | null;
   } | null;
+  tasteMatchPercentage?: number;
 }
 
 interface PendingIncomingItem {
@@ -287,11 +288,19 @@ export default function FriendsPage() {
                             {friend.display_name}
                           </h4>
                           {friend.taste_archetype ? (
-                            <Badge variant="outline" className="text-[10px] py-0 px-2 mt-1 truncate max-w-[190px] border-emerald-500/30 text-emerald-400 bg-emerald-500/5">
+                            <Badge variant="outline" className="text-[10px] py-0 px-2 mt-1 truncate max-w-[190px] border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/5">
                               {friend.taste_archetype}
                             </Badge>
                           ) : (
                             <span className="text-[11px] text-muted-foreground">Reader</span>
+                          )}
+                          {item.tasteMatchPercentage !== undefined && (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-400/10 border border-amber-300 dark:border-amber-400/20 px-2 py-0.5 rounded-full">
+                                <Sparkles className="size-2.5 text-amber-600 dark:text-amber-400" />
+                                <span>{item.tasteMatchPercentage}% Taste Match</span>
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -309,7 +318,7 @@ export default function FriendsPage() {
                     {/* Currently Reading Snippet */}
                     <div className="rounded-xl border border-border/40 bg-muted/30 p-3 mb-4">
                       <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1 mb-1.5">
-                        <BookMarked className="size-3 text-amber-400" />
+                        <BookMarked className="size-3 text-amber-600 dark:text-amber-400" />
                         <span>Reading Now</span>
                       </span>
                       {currentlyReading ? (

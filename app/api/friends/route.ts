@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { normalizeEmail } from "@/lib/friends";
+import { normalizeEmail, calculateTasteOverlap } from "@/lib/friends";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -61,35 +61,44 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. For accepted friends, fetch their currently-reading book
+    // 3. For accepted friends, fetch their currently-reading book and taste profiles
     const acceptedFriendsList: Array<{
       friendshipId: string;
       friend: { id: string; display_name: string; avatar_url: string | null; taste_archetype: string | null };
       acceptedAt: string;
       currentlyReading: { title: string; author: string; cover_url: string | null } | null;
+      tasteMatchPercentage: number;
     }> = [];
 
     const acceptedRows = friendships.filter((f) => f.status === "accepted");
     const acceptedFriendIds = acceptedRows.map((f) => (f.requester_id === user.id ? f.addressee_id : f.requester_id));
 
     const currentlyReadingMap = new Map<string, { title: string; author: string; cover_url: string | null }>();
+    const tasteProfilesMap = new Map<string, any>();
+
     if (acceptedFriendIds.length > 0) {
-      const { data: currentBooks } = await admin
-        .from("user_books")
-        .select(`
-          user_id,
-          books (
-            title,
-            author,
-            cover_url
-          )
-        `)
-        .in("user_id", acceptedFriendIds)
-        .eq("shelf", "currently-reading")
-        .limit(100);
+      const [currentBooksRes, tasteRes] = await Promise.all([
+        admin
+          .from("user_books")
+          .select(`
+            user_id,
+            books (
+              title,
+              author,
+              cover_url
+            )
+          `)
+          .in("user_id", acceptedFriendIds)
+          .eq("shelf", "currently-reading")
+          .limit(100),
+        admin
+          .from("taste_profiles")
+          .select("user_id, archetype_name, archetype_summary, preferred_pacing, emotional_tone, top_tropes, dealbreakers")
+          .in("user_id", [user.id, ...acceptedFriendIds]),
+      ]);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const ub of (currentBooks || []) as any[]) {
+      for (const ub of (currentBooksRes.data || []) as any[]) {
         if (ub.books && !currentlyReadingMap.has(ub.user_id)) {
           currentlyReadingMap.set(ub.user_id, {
             title: ub.books.title,
@@ -98,7 +107,13 @@ export async function GET(req: Request) {
           });
         }
       }
+
+      for (const tp of tasteRes.data || []) {
+        tasteProfilesMap.set(tp.user_id, tp);
+      }
     }
+
+    const myTaste = tasteProfilesMap.get(user.id) || null;
 
     for (const f of acceptedRows) {
       const friendId = f.requester_id === user.id ? f.addressee_id : f.requester_id;
@@ -109,11 +124,15 @@ export async function GET(req: Request) {
         taste_archetype: null,
       };
 
+      const friendTaste = tasteProfilesMap.get(friendId) || null;
+      const overlap = calculateTasteOverlap(myTaste, friendTaste, [], []);
+
       acceptedFriendsList.push({
         friendshipId: f.id,
         friend: profile,
         acceptedAt: f.updated_at || f.created_at,
         currentlyReading: currentlyReadingMap.get(friendId) || null,
+        tasteMatchPercentage: overlap.stats.tasteMatchPercentage,
       });
     }
 

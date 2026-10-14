@@ -16,11 +16,19 @@ import {
   Lock,
   Layers,
   ChevronDown,
+  Send,
+  Heart,
+  Zap,
+  BookmarkCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  RecommendBookModal,
+  BookToRecommend,
+} from "@/components/friends/recommend-book-modal";
 
 interface BookItem {
   id: string;
@@ -57,7 +65,16 @@ interface LibraryStats {
   avgRating: string | null;
 }
 
-type ShelfFilter = "all" | "read" | "to-read" | "currently-reading" | "did-not-finish";
+type ShelfFilter =
+  | "all"
+  | "read"
+  | "to-read"
+  | "currently-reading"
+  | "did-not-finish"
+  | "both-loved"
+  | "on-my-want-to-read"
+  | "contrasts";
+
 type SortOption = "rating-desc" | "title-asc" | "author-asc" | "date-read-desc";
 
 function FriendBookCover({
@@ -140,8 +157,14 @@ export default function FriendLibraryPage() {
   const [books, setBooks] = React.useState<BookItem[]>([]);
   const [stats, setStats] = React.useState<LibraryStats | null>(null);
   const [owner, setOwner] = React.useState<OwnerProfile | null>(null);
+  const [viewerBooksMap, setViewerBooksMap] = React.useState<Record<string, { shelf: string; rating: number | null }> | null>(null);
+  const [tasteMatchPercentage, setTasteMatchPercentage] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Recommendations modal state
+  const [recommendBook, setRecommendBook] = React.useState<BookToRecommend | null>(null);
+  const [isRecommendModalOpen, setIsRecommendModalOpen] = React.useState(false);
 
   // Filters
   const [search, setSearch] = React.useState("");
@@ -163,6 +186,8 @@ export default function FriendLibraryPage() {
         setBooks(data.books || []);
         setStats(data.stats || null);
         setOwner(data.owner || null);
+        setViewerBooksMap(data.viewerBooksMap || null);
+        setTasteMatchPercentage(data.tasteMatchPercentage ?? null);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Access restricted");
@@ -170,9 +195,63 @@ export default function FriendLibraryPage() {
       .finally(() => setLoading(false));
   }, [friendId]);
 
+  // Compute counts for smart overlap filter tabs
+  const overlapCounts = React.useMemo(() => {
+    if (!viewerBooksMap) return { bothLoved: 0, onMyWantToRead: 0, contrasts: 0 };
+    let bothLoved = 0;
+    let onMyWantToRead = 0;
+    let contrasts = 0;
+
+    for (const b of books) {
+      const vb = viewerBooksMap[b.book_id];
+      if (!vb) continue;
+
+      if (
+        typeof b.rating === "number" &&
+        b.rating >= 4 &&
+        typeof vb.rating === "number" &&
+        vb.rating >= 4
+      ) {
+        bothLoved++;
+      }
+      if (vb.shelf === "to-read") {
+        onMyWantToRead++;
+      }
+      if (
+        typeof b.rating === "number" &&
+        typeof vb.rating === "number" &&
+        Math.abs(b.rating - vb.rating) >= 2
+      ) {
+        contrasts++;
+      }
+    }
+    return { bothLoved, onMyWantToRead, contrasts };
+  }, [books, viewerBooksMap]);
+
   const filteredBooks = React.useMemo(() => {
     return books
       .filter((b) => {
+        if (activeShelf === "both-loved") {
+          const vb = viewerBooksMap?.[b.book_id];
+          return Boolean(
+            typeof b.rating === "number" &&
+            b.rating >= 4 &&
+            typeof vb?.rating === "number" &&
+            vb.rating >= 4
+          );
+        }
+        if (activeShelf === "on-my-want-to-read") {
+          const vb = viewerBooksMap?.[b.book_id];
+          return vb?.shelf === "to-read";
+        }
+        if (activeShelf === "contrasts") {
+          const vb = viewerBooksMap?.[b.book_id];
+          return Boolean(
+            typeof b.rating === "number" &&
+            typeof vb?.rating === "number" &&
+            Math.abs(b.rating - vb.rating) >= 2
+          );
+        }
         if (activeShelf !== "all" && b.shelf !== activeShelf) return false;
         if (search) {
           const q = search.toLowerCase();
@@ -194,7 +273,7 @@ export default function FriendLibraryPage() {
             return 0;
         }
       });
-  }, [books, activeShelf, search, sortBy]);
+  }, [books, activeShelf, search, sortBy, viewerBooksMap]);
 
   if (loading) {
     return (
@@ -250,17 +329,23 @@ export default function FriendLibraryPage() {
               )}
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
                   {friendName}&apos;s Shelves
                 </h1>
-                <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/30">
-                  Friends-Only View
+                {tasteMatchPercentage !== null && (
+                  <Badge className="bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 gap-1 font-bold text-[11px] py-0.5 px-2">
+                    <Sparkles className="size-3 text-amber-600 dark:text-amber-400" />
+                    <span>{tasteMatchPercentage}% Taste Match</span>
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-[10px] text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-500/30 bg-blue-50/60 dark:bg-transparent">
+                  Friends-Only
                 </Badge>
               </div>
               {owner?.taste_archetype && (
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Reading Archetype: <span className="text-emerald-400 font-semibold">{owner.taste_archetype}</span>
+                  Reading Archetype: <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{owner.taste_archetype}</span>
                 </p>
               )}
             </div>
@@ -278,29 +363,29 @@ export default function FriendLibraryPage() {
       {/* Stats Quick Ribbon */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          <Card className="border-border/60 bg-card/40 p-4">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground block mb-1">
+          <Card className="border-border/60 bg-card/60 p-4">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
               Total Books
             </span>
             <span className="text-2xl font-black text-foreground">{stats.total}</span>
           </Card>
-          <Card className="border-border/60 bg-card/40 p-4">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground block mb-1">
+          <Card className="border-border/60 bg-card/60 p-4">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
               Completed
             </span>
-            <span className="text-2xl font-black text-emerald-400">{stats.read}</span>
+            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.read}</span>
           </Card>
-          <Card className="border-border/60 bg-card/40 p-4">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground block mb-1">
+          <Card className="border-border/60 bg-card/60 p-4">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
               Currently Reading
             </span>
-            <span className="text-2xl font-black text-amber-400">{stats.currentlyReading}</span>
+            <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{stats.currentlyReading}</span>
           </Card>
-          <Card className="border-border/60 bg-card/40 p-4">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground block mb-1">
+          <Card className="border-border/60 bg-card/60 p-4">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
               Avg Rating
             </span>
-            <span className="text-2xl font-black text-blue-400">
+            <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
               {stats.avgRating ? `${stats.avgRating}★` : "—"}
             </span>
           </Card>
@@ -308,9 +393,10 @@ export default function FriendLibraryPage() {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        {/* Shelf Filter Badges */}
+      <div className="flex flex-col gap-3 mb-6">
+        {/* Shelf & Overlap Filter Badges */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {/* Core Shelves */}
           {[
             { id: "all", label: "All Books" },
             { id: "read", label: "Read" },
@@ -321,20 +407,86 @@ export default function FriendLibraryPage() {
             <button
               key={tab.id}
               onClick={() => setActiveShelf(tab.id as ShelfFilter)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${
                 activeShelf === tab.id
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                  : "bg-background text-muted-foreground border-border/70 hover:text-foreground hover:bg-muted/60"
               }`}
             >
               {tab.label}
             </button>
           ))}
+
+          {/* Smart Overlap Filters (Issue #37) */}
+          <div className="hidden sm:block w-px h-5 bg-border/60 mx-1" />
+
+          <button
+            onClick={() => setActiveShelf("both-loved")}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${
+              activeShelf === "both-loved"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-900/50"
+            }`}
+          >
+            <Heart className="size-3" />
+            <span>Both Loved</span>
+            {overlapCounts.bothLoved > 0 && (
+              <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                activeShelf === "both-loved"
+                  ? "bg-emerald-700 text-white"
+                  : "bg-emerald-200/90 text-emerald-900 dark:bg-emerald-500/30 dark:text-emerald-200"
+              }`}>
+                {overlapCounts.bothLoved}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveShelf("on-my-want-to-read")}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${
+              activeShelf === "on-my-want-to-read"
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                : "bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/30 dark:hover:bg-blue-900/50"
+            }`}
+          >
+            <BookmarkCheck className="size-3" />
+            <span>On Your Want to Read</span>
+            {overlapCounts.onMyWantToRead > 0 && (
+              <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                activeShelf === "on-my-want-to-read"
+                  ? "bg-blue-700 text-white"
+                  : "bg-blue-200/90 text-blue-900 dark:bg-blue-500/30 dark:text-blue-200"
+              }`}>
+                {overlapCounts.onMyWantToRead}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveShelf("contrasts")}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-colors border ${
+              activeShelf === "contrasts"
+                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                : "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-900/50"
+            }`}
+          >
+            <Zap className="size-3" />
+            <span>Rating Contrasts</span>
+            {overlapCounts.contrasts > 0 && (
+              <span className={`ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                activeShelf === "contrasts"
+                  ? "bg-amber-700 text-white"
+                  : "bg-amber-200/90 text-amber-900 dark:bg-amber-500/30 dark:text-amber-200"
+              }`}>
+                {overlapCounts.contrasts}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Search & Sort */}
-        <div className="flex items-center gap-2">
-          <div className="relative w-48 sm:w-60">
+        <div className="flex items-center justify-between sm:justify-end gap-2 pt-1">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
               value={search}
@@ -347,11 +499,11 @@ export default function FriendLibraryPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground focus:outline-none"
+            className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground focus:outline-none shrink-0"
           >
-            <option value="rating-desc">Highest Rated</option>
-            <option value="title-asc">Title (A-Z)</option>
-            <option value="author-asc">Author (A-Z)</option>
+            <option value="rating-desc">Rating: High to Low</option>
+            <option value="title-asc">Title: A to Z</option>
+            <option value="author-asc">Author: A to Z</option>
             <option value="date-read-desc">Recently Read</option>
           </select>
         </div>
@@ -360,23 +512,43 @@ export default function FriendLibraryPage() {
       {/* Book Grid */}
       {filteredBooks.length === 0 ? (
         <Card className="border-dashed border-border/80 bg-card/40 py-16 text-center">
-          <p className="text-xs text-muted-foreground italic">
-            No books found matching this filter in {friendName}&apos;s library.
+          <p className="text-xs text-muted-foreground italic max-w-md mx-auto">
+            {activeShelf === "contrasts"
+              ? `No rating contrasts found. You and ${friendName} haven't rated any of the same books with a 2+ star difference yet!`
+              : activeShelf === "both-loved"
+              ? `No shared favorites found. Books that both you and ${friendName} rate 4★ or 5★ will show here!`
+              : activeShelf === "on-my-want-to-read"
+              ? `None of the books on ${friendName}'s shelves are currently on your Want to Read list.`
+              : `No books found matching this filter in ${friendName}'s library.`}
           </p>
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {filteredBooks.map((book) => {
+          {filteredBooks.map((book, index) => {
+            const vb = viewerBooksMap?.[book.book_id];
+            const isBothLoved = Boolean(
+              typeof book.rating === "number" &&
+              book.rating >= 4 &&
+              typeof vb?.rating === "number" &&
+              vb.rating >= 4
+            );
+            const isOnMyWantToRead = vb?.shelf === "to-read";
+            const isContrasting = Boolean(
+              typeof book.rating === "number" &&
+              typeof vb?.rating === "number" &&
+              Math.abs(book.rating - vb.rating) >= 2
+            );
+
             const shelfBadge = (() => {
               switch (book.shelf) {
                 case "read":
-                  return <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-400">Read</Badge>;
+                  return <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-emerald-50/60 dark:bg-transparent">Read</Badge>;
                 case "currently-reading":
-                  return <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-400">Reading</Badge>;
+                  return <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-transparent">Reading</Badge>;
                 case "to-read":
-                  return <Badge variant="outline" className="text-[9px] border-blue-500/40 text-blue-400">Want to Read</Badge>;
+                  return <Badge variant="outline" className="text-[9px] border-blue-500/40 text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-transparent">Want to Read</Badge>;
                 case "did-not-finish":
-                  return <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-400">DNF</Badge>;
+                  return <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-700 dark:text-rose-400 bg-rose-50/60 dark:bg-transparent">DNF</Badge>;
                 default:
                   return null;
               }
@@ -394,7 +566,27 @@ export default function FriendLibraryPage() {
                       coverUrl={book.cover_url}
                       title={book.title}
                       author={book.author}
+                      priority={index < 6}
                     />
+
+                    {/* Overlap Badges (Issue #37) */}
+                    <div className="absolute top-1.5 left-1.5 right-1.5 flex flex-col gap-1 items-start">
+                      {isBothLoved && (
+                        <span className="rounded-xs bg-emerald-950/90 border border-emerald-500/40 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300 backdrop-blur-xs">
+                          ✨ Both Loved
+                        </span>
+                      )}
+                      {isOnMyWantToRead && (
+                        <span className="rounded-xs bg-blue-950/90 border border-blue-500/40 px-1.5 py-0.5 text-[9px] font-bold text-blue-300 backdrop-blur-xs">
+                          📌 In Your Queue
+                        </span>
+                      )}
+                      {isContrasting && (
+                        <span className="rounded-xs bg-amber-950/90 border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 backdrop-blur-xs">
+                          ⚡ Differing Take
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Info */}
@@ -402,8 +594,8 @@ export default function FriendLibraryPage() {
                     <div className="flex items-center justify-between gap-1">
                       {shelfBadge}
                       {book.rating && (
-                        <div className="flex items-center gap-0.5 text-amber-400 text-xs font-bold">
-                          <Star className="size-3 fill-amber-400" />
+                        <div className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                          <Star className="size-3 fill-amber-500 dark:fill-amber-400" />
                           <span>{book.rating}</span>
                         </div>
                       )}
@@ -415,21 +607,54 @@ export default function FriendLibraryPage() {
                     <p className="text-xs sm:text-[11px] text-muted-foreground line-clamp-1">
                       {book.author}
                     </p>
+
+                    {/* Viewer rating comparison snippet */}
+                    {vb?.rating !== undefined && vb?.rating !== null && (
+                      <p className="text-[10px] text-muted-foreground/80 font-mono">
+                        Your rating: <span className="text-foreground font-bold">{vb.rating}★</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {book.user_review && (
-                  <div className="px-3 pb-3 pt-0">
+                <div className="px-3 pb-3 pt-0 space-y-1.5">
+                  {book.user_review && (
                     <p className="text-[10px] text-muted-foreground/90 line-clamp-2 italic border-t border-border/40 pt-1.5">
                       &ldquo;{book.user_review}&rdquo;
                     </p>
-                  </div>
-                )}
+                  )}
+
+                  {/* Recommend button (Issue #38) */}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setRecommendBook({
+                        id: book.book_id,
+                        title: book.title,
+                        author: book.author,
+                        cover_url: book.cover_url,
+                      });
+                      setIsRecommendModalOpen(true);
+                    }}
+                    className="w-full h-7 text-[11px] gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Send className="size-3" />
+                    <span>Recommend</span>
+                  </Button>
+                </div>
               </Card>
             );
           })}
         </div>
       )}
+
+      {/* Recommend Book Modal */}
+      <RecommendBookModal
+        open={isRecommendModalOpen}
+        onOpenChange={setIsRecommendModalOpen}
+        book={recommendBook}
+      />
     </div>
   );
 }
