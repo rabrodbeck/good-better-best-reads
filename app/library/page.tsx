@@ -33,6 +33,12 @@ import {
   RecommendBookModal,
   BookToRecommend,
 } from "@/components/friends/recommend-book-modal";
+import {
+  ShelfConciergeModal,
+  ConciergePick,
+} from "@/components/librarian/shelf-concierge-modal";
+import { SeriesTracker } from "@/components/library/series-tracker";
+import { parseSeriesInfo, groupBooksBySeries } from "@/lib/series";
 
 interface BookItem {
   id: string;
@@ -62,7 +68,7 @@ interface LibraryStats {
   avgRating: string | null;
 }
 
-type ShelfFilter = "all" | "read" | "to-read" | "currently-reading" | "recommended";
+type ShelfFilter = "all" | "read" | "to-read" | "currently-reading" | "recommended" | "series";
 type SortOption = "rating-desc" | "title-asc" | "author-asc" | "date-read-desc";
 
 function LibraryBookCover({
@@ -254,6 +260,9 @@ export default function LibraryPage() {
   const [recommendBook, setRecommendBook] = React.useState<BookToRecommend | null>(null);
   const [isRecommendModalOpen, setIsRecommendModalOpen] = React.useState(false);
 
+  // Shelf Concierge State (Issue #39)
+  const [isConciergeModalOpen, setIsConciergeModalOpen] = React.useState(false);
+
   React.useEffect(() => {
     fetch("/api/library")
       .then((res) => res.json())
@@ -355,6 +364,37 @@ export default function LibraryPage() {
   const existingBookTitles = React.useMemo(() => {
     return new Set(books.map((b) => b.title.toLowerCase().trim()));
   }, [books]);
+
+  const seriesCount = React.useMemo(() => {
+    return groupBooksBySeries(books).length;
+  }, [books]);
+
+  const handleStartReadingFromConcierge = async (pick: ConciergePick) => {
+    const targetBook = books.find((b) => b.book_id === pick.bookId || b.id === pick.userBookId);
+    if (targetBook) {
+      await handleShelfChange(targetBook, "currently-reading");
+    } else {
+      try {
+        await fetch("/api/library", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookId: pick.bookId,
+            shelf: "currently-reading",
+          }),
+        });
+        setToastMessage(`Moved "${pick.title}" to Reading Now!`);
+        setTimeout(() => setToastMessage(null), 3500);
+        fetch("/api/library")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.books) setBooks(data.books);
+          });
+      } catch (err) {
+        console.error("Failed to start reading book:", err);
+      }
+    }
+  };
 
   // Real-time optimistic shelf change
   const handleShelfChange = async (book: BookItem, newShelf: BookItem["shelf"]) => {
@@ -492,7 +532,12 @@ export default function LibraryPage() {
     return books
       .filter((book) => {
         // Shelf Filter
-        if (activeShelf !== "all" && book.shelf !== activeShelf) {
+        if (
+          activeShelf !== "all" &&
+          activeShelf !== "recommended" &&
+          activeShelf !== "series" &&
+          book.shelf !== activeShelf
+        ) {
           return false;
         }
 
@@ -596,7 +641,17 @@ export default function LibraryPage() {
           </h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setIsConciergeModalOpen(true)}
+            className="gap-1.5 font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-xs"
+          >
+            <Sparkles className="size-4 text-amber-200" />
+            <span className="hidden sm:inline">What to Read Next</span>
+            <span className="sm:hidden">Next Read</span>
+          </Button>
+
           <Button
             size="sm"
             onClick={() => setIsAddModalOpen(true)}
@@ -732,6 +787,20 @@ export default function LibraryPage() {
             <Sparkles className="size-3 text-amber-600 dark:text-amber-300" />
             <span>From Friends {recommendations.length > 0 ? `(${recommendations.length})` : ""}</span>
           </Button>
+
+          <Button
+            variant={activeShelf === "series" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveShelf("series")}
+            className={`h-8 text-xs px-2.5 gap-1.5 ${
+              activeShelf === "series"
+                ? "bg-purple-600 hover:bg-purple-700 text-white"
+                : "text-purple-700 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+            }`}
+          >
+            <Layers className="size-3 text-purple-600 dark:text-purple-300" />
+            <span>Series {seriesCount > 0 ? `(${seriesCount})` : ""}</span>
+          </Button>
         </div>
 
         {/* Sort Selector */}
@@ -787,8 +856,38 @@ export default function LibraryPage() {
         </button>
       </div>
 
-      {/* Book Grid or Recommendations Grid */}
-      {activeShelf === "recommended" ? (
+      {/* Want to Read AI Concierge Prompt Callout */}
+      {activeShelf === "to-read" && stats && stats.toRead > 0 && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-foreground">Can&apos;t decide what to read next?</h4>
+              <p className="text-xs text-muted-foreground">
+                Let your AI Shelf Concierge analyze your taste DNA and pick 3 perfect candidates from your Want to Read shelf.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsConciergeModalOpen(true)}
+            className="shrink-0 font-semibold bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-xs"
+          >
+            <Sparkles className="size-3.5" />
+            <span>Ask Concierge</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Series View, Recommendations Grid, or Regular Shelf Grid */}
+      {activeShelf === "series" ? (
+        <SeriesTracker
+          books={books}
+          onStartReading={(book) => handleShelfChange(book, "currently-reading")}
+        />
+      ) : activeShelf === "recommended" ? (
         recommendations.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-16 text-center border border-dashed border-border/60 rounded-2xl bg-card/20 space-y-3">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
@@ -898,45 +997,63 @@ export default function LibraryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-          {filteredBooks.map((book, index) => (
-            <Card
-              key={book.id}
-              className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-xs hover:border-primary/50 transition-all flex flex-col justify-between"
-            >
-              <CardContent className="p-2.5 sm:p-3 flex flex-col h-full justify-between">
-                <div>
-                  {/* Book Cover Image / Styled Fallback */}
-                  <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs mb-2.5 flex items-center justify-center">
-                    <LibraryBookCover
-                      coverUrl={book.cover_url}
-                      title={book.title}
-                      author={book.author}
-                      priority={index < 6}
+          {filteredBooks.map((book, index) => {
+            const seriesInfo = parseSeriesInfo(book.title);
+            const cleanTitle = seriesInfo ? seriesInfo.cleanTitle : book.title;
+
+            return (
+              <Card
+                key={book.id}
+                className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-xs hover:border-primary/50 transition-all flex flex-col justify-between"
+              >
+                <CardContent className="p-2.5 sm:p-3 flex flex-col h-full justify-between">
+                  <div>
+                    {/* Book Cover Image / Styled Fallback */}
+                    <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs mb-2.5 flex items-center justify-center">
+                      <LibraryBookCover
+                        coverUrl={book.cover_url}
+                        title={cleanTitle}
+                        author={book.author}
+                        priority={index < 6}
+                      />
+
+                      {/* Interactive Shelf Selector Badge */}
+                      <div className="absolute top-1.5 left-1.5 z-10 max-w-[calc(100%-12px)]">
+                        <ShelfSelector
+                          shelf={book.shelf}
+                          onShelfChange={(newShelf) => handleShelfChange(book, newShelf)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Interactive 1-5 Star Rating Controls */}
+                    <InteractiveStarRating
+                      rating={book.rating}
+                      onRate={(newRating) => handleRatingChange(book, newRating)}
                     />
 
-                    {/* Interactive Shelf Selector Badge */}
-                    <div className="absolute top-1.5 left-1.5 z-10 max-w-[calc(100%-12px)]">
-                      <ShelfSelector
-                        shelf={book.shelf}
-                        onShelfChange={(newShelf) => handleShelfChange(book, newShelf)}
-                      />
-                    </div>
+                    {/* Series Badge if Applicable */}
+                    {seriesInfo && (
+                      <div
+                        className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/20 rounded-xs px-1.5 py-0.5 w-fit max-w-full truncate"
+                        title={seriesInfo.displaySeries}
+                      >
+                        <Layers className="size-2.5 shrink-0" />
+                        <span className="truncate">{seriesInfo.displaySeries}</span>
+                      </div>
+                    )}
+
+                    {/* Title & Author */}
+                    <h4
+                      className="text-sm sm:text-xs font-semibold sm:font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors"
+                      title={book.title}
+                    >
+                      {cleanTitle}
+                    </h4>
+                    <p className="text-xs sm:text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                      {book.author}
+                    </p>
                   </div>
-
-                  {/* Interactive 1-5 Star Rating Controls */}
-                  <InteractiveStarRating
-                    rating={book.rating}
-                    onRate={(newRating) => handleRatingChange(book, newRating)}
-                  />
-
-                  {/* Title & Author */}
-                  <h4 className="text-sm sm:text-xs font-semibold sm:font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                    {book.title}
-                  </h4>
-                  <p className="text-xs sm:text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                    {book.author}
-                  </p>
-                </div>
 
                 {/* Metadata Row */}
                 <div className="pt-2.5 mt-2 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground">
@@ -976,7 +1093,8 @@ export default function LibraryPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          );
+        })}
         </div>
       )}
 
@@ -1008,6 +1126,13 @@ export default function LibraryPage() {
           setToastMessage(`Sent recommendation for "${recommendBook?.title}"!`);
           setTimeout(() => setToastMessage(null), 3500);
         }}
+      />
+
+      {/* Shelf Concierge Modal (Issue #39) */}
+      <ShelfConciergeModal
+        open={isConciergeModalOpen}
+        onOpenChange={setIsConciergeModalOpen}
+        onStartReading={handleStartReadingFromConcierge}
       />
 
       {/* Toast Alert Notification */}

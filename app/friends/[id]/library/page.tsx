@@ -29,6 +29,7 @@ import {
   RecommendBookModal,
   BookToRecommend,
 } from "@/components/friends/recommend-book-modal";
+import { parseSeriesInfo } from "@/lib/series";
 
 interface BookItem {
   id: string;
@@ -554,6 +555,9 @@ export default function FriendLibraryPage() {
               }
             })();
 
+            const seriesInfo = parseSeriesInfo(book.title);
+            const cleanTitle = seriesInfo ? seriesInfo.cleanTitle : book.title;
+
             return (
               <Card
                 key={book.id}
@@ -564,7 +568,7 @@ export default function FriendLibraryPage() {
                   <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
                     <FriendBookCover
                       coverUrl={book.cover_url}
-                      title={book.title}
+                      title={cleanTitle}
                       author={book.author}
                       priority={index < 6}
                     />
@@ -601,8 +605,22 @@ export default function FriendLibraryPage() {
                       )}
                     </div>
 
-                    <h4 className="text-sm sm:text-xs font-semibold sm:font-bold text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                      {book.title}
+                    {/* Series Badge if Applicable */}
+                    {seriesInfo && (
+                      <div
+                        className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/20 rounded-xs px-1.5 py-0.5 w-fit max-w-full truncate"
+                        title={seriesInfo.displaySeries}
+                      >
+                        <Layers className="size-2.5 shrink-0" />
+                        <span className="truncate">{seriesInfo.displaySeries}</span>
+                      </div>
+                    )}
+
+                    <h4
+                      className="text-sm sm:text-xs font-semibold sm:font-bold text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors"
+                      title={book.title}
+                    >
+                      {cleanTitle}
                     </h4>
                     <p className="text-xs sm:text-[11px] text-muted-foreground line-clamp-1">
                       {book.author}
