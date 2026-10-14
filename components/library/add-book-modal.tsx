@@ -18,6 +18,7 @@ import {
   X,
   Plus,
   Camera,
+  Check,
 } from "lucide-react";
 import {
   Dialog,
@@ -62,11 +63,28 @@ export interface AddedBookItem {
   user_shelves: string[];
 }
 
+export interface ExistingBookShelfInfo {
+  id: string;
+  book_id: string;
+  title: string;
+  author: string;
+  shelf: ShelfType;
+  rating?: number | null;
+  user_review?: string | null;
+  date_read?: string | null;
+  isbn?: string | null;
+  isbn13?: string | null;
+}
+
+// Module-level library cache so the modal recognizes shelves instantly across renders
+let globalLibraryCache: ExistingBookShelfInfo[] | null = null;
+
 interface AddBookModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onBookAdded: (book: AddedBookItem) => void;
   existingBookTitles?: Set<string>;
+  existingBooks?: ExistingBookShelfInfo[];
 }
 
 type ShelfType = "to-read" | "currently-reading" | "read" | "did-not-finish";
@@ -92,6 +110,7 @@ export function AddBookModal({
   onOpenChange,
   onBookAdded,
   existingBookTitles = new Set(),
+  existingBooks = [],
 }: AddBookModalProps) {
   // Step navigation: 1 = Search & Select, 2 = Configure Shelf & Rating
   const [step, setStep] = React.useState<1 | 2>(1);
@@ -106,6 +125,103 @@ export function AddBookModal({
 
   // Selected book state
   const [selectedBook, setSelectedBook] = React.useState<SearchResultItem | null>(null);
+
+  // User's current library books for shelf recognition (initialize from prop or global cache)
+  const [libraryBooks, setLibraryBooks] = React.useState<ExistingBookShelfInfo[]>(() => {
+    if (existingBooks && existingBooks.length > 0) {
+      globalLibraryCache = existingBooks;
+      return existingBooks;
+    }
+    return globalLibraryCache || [];
+  });
+
+  // Sync libraryBooks when existingBooks prop updates
+  React.useEffect(() => {
+    if (existingBooks && existingBooks.length > 0) {
+      setLibraryBooks(existingBooks);
+      globalLibraryCache = existingBooks;
+    }
+  }, [existingBooks]);
+
+  // Self-hydrate user's library books when modal opens
+  React.useEffect(() => {
+    if (!open) return;
+    let isCancelled = false;
+    fetch("/api/library")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isCancelled && data?.books && Array.isArray(data.books)) {
+          setLibraryBooks(data.books);
+          globalLibraryCache = data.books;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, [open]);
+
+  // Robust book-on-shelf matching helper
+  const matchExistingBook = React.useCallback(
+    (candidate: {
+      title: string;
+      author?: string;
+      isbn?: string | null;
+      isbn13?: string | null;
+    }): ExistingBookShelfInfo | null => {
+      // 1. Check exact ISBN13 / ISBN match first
+      const candIsbn13 = candidate.isbn13?.replace(/[^0-9X]/gi, "");
+      const candIsbn = candidate.isbn?.replace(/[^0-9X]/gi, "");
+
+      if (candIsbn13 || candIsbn) {
+        const isbnMatch = libraryBooks.find((b) => {
+          const bIsbn13 = b.isbn13?.replace(/[^0-9X]/gi, "");
+          const bIsbn = b.isbn?.replace(/[^0-9X]/gi, "");
+          if (candIsbn13 && (candIsbn13 === bIsbn13 || candIsbn13 === bIsbn)) return true;
+          if (candIsbn && (candIsbn === bIsbn || candIsbn === bIsbn13)) return true;
+          return false;
+        });
+        if (isbnMatch) return isbnMatch;
+      }
+
+      // 2. Clean and normalize titles
+      const clean = (str: string) =>
+        str
+          .toLowerCase()
+          .replace(/\s*\([^)]*\)/g, "") // remove (A Novel), (Series, #2), etc.
+          .replace(/[:\-–—].*$/, "") // remove subtitle after colon
+          .replace(/['’"“”.,!?-]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      const candNorm = clean(candidate.title);
+
+      const titleMatch = libraryBooks.find((b) => {
+        const bNorm = clean(b.title);
+        if (candNorm === bNorm) return true;
+        if (candNorm.length > 5 && bNorm.length > 5) {
+          if (candNorm.startsWith(bNorm) || bNorm.startsWith(candNorm)) return true;
+        }
+        return false;
+      });
+
+      if (titleMatch) return titleMatch;
+
+      // 3. Fallback to existingBookTitles prop if libraryBooks hasn't loaded
+      if (existingBookTitles.has(candidate.title.toLowerCase().trim())) {
+        return {
+          id: "",
+          book_id: "",
+          title: candidate.title,
+          author: candidate.author || "",
+          shelf: "read",
+        };
+      }
+
+      return null;
+    },
+    [libraryBooks, existingBookTitles]
+  );
 
   // Shelf & rating form state
   const [targetShelf, setTargetShelf] = React.useState<ShelfType>("to-read");
@@ -181,11 +297,24 @@ export function AddBookModal({
   const handleSelectBook = (book: SearchResultItem) => {
     setSelectedBook(book);
     setStep(2);
-    setTargetShelf("to-read");
-    setRating(null);
-    setDateRead(new Date().toISOString().split("T")[0]);
-    setUserReview("");
     setSubmitError(null);
+
+    const existing = matchExistingBook(book);
+    if (existing) {
+      setTargetShelf(existing.shelf || "to-read");
+      setRating(existing.rating !== undefined ? existing.rating : null);
+      setDateRead(
+        existing.date_read
+          ? existing.date_read.split("T")[0]
+          : new Date().toISOString().split("T")[0]
+      );
+      setUserReview(existing.user_review || "");
+    } else {
+      setTargetShelf("to-read");
+      setRating(null);
+      setDateRead(new Date().toISOString().split("T")[0]);
+      setUserReview("");
+    }
   };
 
   const handleBackToSearch = () => {
@@ -313,9 +442,7 @@ export function AddBookModal({
               ) : results.length > 0 ? (
                 <div className="space-y-2">
                   {results.map((book) => {
-                    const isAlreadyInLibrary = existingBookTitles.has(
-                      book.title.toLowerCase().trim()
-                    );
+                    const existing = matchExistingBook(book);
 
                     return (
                       <div
@@ -345,16 +472,41 @@ export function AddBookModal({
 
                           {/* Book Metadata */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <h4 className="text-sm sm:text-base font-bold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
                                 {book.title}
                               </h4>
-                              {isAlreadyInLibrary && (
+                              {existing && (
                                 <Badge
-                                  variant="secondary"
-                                  className="text-[10px] sm:text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20 shrink-0 font-medium"
+                                  className={`text-xs font-semibold gap-1.5 px-2.5 py-0.5 shrink-0 ${
+                                    existing.shelf === "read"
+                                      ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                      : existing.shelf === "currently-reading"
+                                      ? "bg-amber-600/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                      : existing.shelf === "did-not-finish"
+                                      ? "bg-rose-600/15 text-rose-700 dark:text-rose-400 border-rose-500/30"
+                                      : "bg-blue-600/15 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                                  }`}
                                 >
-                                  In Library
+                                  {existing.shelf === "read" ? (
+                                    <CheckCircle2 className="size-3.5" />
+                                  ) : existing.shelf === "currently-reading" ? (
+                                    <BookOpen className="size-3.5" />
+                                  ) : existing.shelf === "did-not-finish" ? (
+                                    <XCircle className="size-3.5" />
+                                  ) : (
+                                    <Bookmark className="size-3.5" />
+                                  )}
+                                  <span>
+                                    {existing.shelf === "read"
+                                      ? "On Shelf: Read"
+                                      : existing.shelf === "currently-reading"
+                                      ? "On Shelf: Reading Now"
+                                      : existing.shelf === "did-not-finish"
+                                      ? "On Shelf: DNF"
+                                      : "On Shelf: Want to Read"}
+                                    {existing.rating ? ` (★ ${existing.rating})` : ""}
+                                  </span>
                                 </Badge>
                               )}
                             </div>
@@ -389,15 +541,28 @@ export function AddBookModal({
                             )}
                           </div>
 
-                          {/* Select Action Button */}
+                          {/* Select / Edit Shelf Action Button */}
                           <div className="shrink-0 self-center">
                             <Button
                               size="sm"
-                              variant="secondary"
-                              className="h-8 sm:h-9 text-xs sm:text-sm px-3.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors font-medium shadow-xs"
+                              variant={existing ? "outline" : "secondary"}
+                              className={`h-8 sm:h-9 text-xs sm:text-sm px-3.5 transition-colors font-medium shadow-xs ${
+                                existing
+                                  ? "border-emerald-500/35 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                                  : "group-hover:bg-primary group-hover:text-primary-foreground"
+                              }`}
                             >
-                              <Plus className="size-4 mr-1" />
-                              <span>Select</span>
+                              {existing ? (
+                                <>
+                                  <Check className="size-4 mr-1 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Edit Shelf</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="size-4 mr-1" />
+                                  <span>Select</span>
+                                </>
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -457,45 +622,85 @@ export function AddBookModal({
                   variant="ghost"
                   size="sm"
                   onClick={handleBackToSearch}
-                  className="h-7 px-2 text-xs -ml-2 text-muted-foreground hover:text-foreground"
+                  className="h-8 px-2.5 text-xs sm:text-sm -ml-2 text-muted-foreground hover:text-foreground"
                 >
-                  <ArrowLeft className="size-3.5 mr-1" />
+                  <ArrowLeft className="size-4 mr-1.5" />
                   <span>Back to Search</span>
                 </Button>
               </div>
-              <DialogTitle className="text-lg font-bold tracking-tight text-foreground">
+              <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 Configure Shelf & Reading Details
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                 Choose which shelf this book belongs to and record your rating.
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto pr-1 space-y-4 max-h-[460px]">
+              {/* Existing Book Shelf Notification Banner */}
+              {(() => {
+                const selectedExisting = selectedBook ? matchExistingBook(selectedBook) : null;
+                if (!selectedExisting) return null;
+
+                const shelfName =
+                  selectedExisting.shelf === "to-read"
+                    ? "Want to Read"
+                    : selectedExisting.shelf === "currently-reading"
+                    ? "Reading Now"
+                    : selectedExisting.shelf === "did-not-finish"
+                    ? "Did Not Finish"
+                    : "Read";
+
+                return (
+                  <div className="p-3.5 sm:p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between gap-3 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
+                        <CheckCircle2 className="size-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">
+                          Currently on your{" "}
+                          <span className="capitalize underline font-bold text-emerald-700 dark:text-emerald-300">
+                            {shelfName}
+                          </span>{" "}
+                          shelf{selectedExisting.rating ? ` • Rated ${selectedExisting.rating} ★` : ""}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Select a different shelf below to move this book, or update your rating & review notes.
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="bg-emerald-600 text-white border-none text-xs px-2.5 py-1 shrink-0 font-medium hidden sm:inline-flex">
+                      Shelf: {shelfName}
+                    </Badge>
+                  </div>
+                );
+              })()}
+
               {/* Selected Book Summary Card */}
               {selectedBook && (
-                <div className="flex items-center gap-3.5 p-3 rounded-xl border border-border/60 bg-muted/20">
-                  <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs flex items-center justify-center">
+                <div className="flex items-center gap-3.5 p-3 sm:p-3.5 rounded-xl border border-border/60 bg-muted/20">
+                  <div className="relative w-14 h-20 shrink-0 rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs flex items-center justify-center">
                     {selectedBook.cover_url ? (
                       <Image
                         src={selectedBook.cover_url}
                         alt={selectedBook.title}
                         fill
                         className="object-cover"
-                        sizes="48px"
+                        sizes="56px"
                       />
                     ) : (
-                      <ImageOff className="size-4 text-muted-foreground/60" />
+                      <ImageOff className="size-5 text-muted-foreground/60" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1">
+                    <h4 className="text-sm sm:text-base font-bold text-foreground line-clamp-1">
                       {selectedBook.title}
                     </h4>
-                    <p className="text-[11px] text-muted-foreground line-clamp-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-1 mt-0.5">
                       {selectedBook.author}
                     </p>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground/80">
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground/80">
                       {selectedBook.published_year && <span>{selectedBook.published_year}</span>}
                       {selectedBook.page_count && <span>• {selectedBook.page_count} pages</span>}
                       {selectedBook.genres?.length > 0 && (
@@ -508,34 +713,34 @@ export function AddBookModal({
 
               {/* Shelf Selection Tabs */}
               <div>
-                <label className="text-xs font-bold text-foreground block mb-2">
+                <label className="text-sm font-bold text-foreground block mb-2.5">
                   Select Reading Shelf
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setTargetShelf("to-read")}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all text-center ${
+                    className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-xl border transition-all text-center ${
                       targetShelf === "to-read"
-                        ? "border-blue-500 bg-blue-500/15 text-blue-400 font-bold shadow-xs"
+                        ? "border-blue-500 bg-blue-500/15 text-blue-400 font-bold shadow-xs ring-1 ring-blue-500/50"
                         : "border-border/60 bg-card/40 text-muted-foreground hover:border-foreground/30"
                     }`}
                   >
-                    <Bookmark className="size-4 mb-1 text-blue-400" />
-                    <span className="text-[11px]">Want to Read</span>
+                    <Bookmark className="size-5 mb-1.5 text-blue-400" />
+                    <span className="text-xs sm:text-sm font-medium">Want to Read</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setTargetShelf("currently-reading")}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all text-center ${
+                    className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-xl border transition-all text-center ${
                       targetShelf === "currently-reading"
-                        ? "border-amber-500 bg-amber-500/15 text-amber-400 font-bold shadow-xs"
+                        ? "border-amber-500 bg-amber-500/15 text-amber-400 font-bold shadow-xs ring-1 ring-amber-500/50"
                         : "border-border/60 bg-card/40 text-muted-foreground hover:border-foreground/30"
                     }`}
                   >
-                    <BookOpen className="size-4 mb-1 text-amber-400" />
-                    <span className="text-[11px]">Reading Now</span>
+                    <BookOpen className="size-5 mb-1.5 text-amber-400" />
+                    <span className="text-xs sm:text-sm font-medium">Reading Now</span>
                   </button>
 
                   <button
@@ -546,43 +751,43 @@ export function AddBookModal({
                         setDateRead(new Date().toISOString().split("T")[0]);
                       }
                     }}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all text-center ${
+                    className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-xl border transition-all text-center ${
                       targetShelf === "read"
-                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold shadow-xs"
+                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold shadow-xs ring-1 ring-emerald-500/50"
                         : "border-border/60 bg-card/40 text-muted-foreground hover:border-foreground/30"
                     }`}
                   >
-                    <CheckCircle2 className="size-4 mb-1 text-emerald-400" />
-                    <span className="text-[11px]">Read</span>
+                    <CheckCircle2 className="size-5 mb-1.5 text-emerald-400" />
+                    <span className="text-xs sm:text-sm font-medium">Read</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setTargetShelf("did-not-finish")}
-                    className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all text-center ${
+                    className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-xl border transition-all text-center ${
                       targetShelf === "did-not-finish"
-                        ? "border-rose-500 bg-rose-500/15 text-rose-400 font-bold shadow-xs"
+                        ? "border-rose-500 bg-rose-500/15 text-rose-400 font-bold shadow-xs ring-1 ring-rose-500/50"
                         : "border-border/60 bg-card/40 text-muted-foreground hover:border-foreground/30"
                     }`}
                   >
-                    <XCircle className="size-4 mb-1 text-rose-400" />
-                    <span className="text-[11px]">Did Not Finish</span>
+                    <XCircle className="size-5 mb-1.5 text-rose-400" />
+                    <span className="text-xs sm:text-sm font-medium">Did Not Finish</span>
                   </button>
                 </div>
               </div>
 
               {/* Star Rating Section */}
               <div className="pt-1">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-foreground">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-bold text-foreground">
                     Rating (Optional)
                   </label>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">
                     {hoverRating ? RATING_LABELS[hoverRating] : rating ? RATING_LABELS[rating] : "Unrated"}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-card/30 p-2.5 rounded-xl border border-border/50">
+                <div className="flex items-center gap-2 bg-card/30 p-3 rounded-xl border border-border/50">
                   {[1, 2, 3, 4, 5].map((starValue) => {
                     const isFilled =
                       (hoverRating !== null ? hoverRating >= starValue : false) ||
@@ -593,7 +798,6 @@ export function AddBookModal({
                         key={starValue}
                         type="button"
                         onClick={() => {
-                          // Toggle off if clicking the currently selected rating
                           setRating(rating === starValue ? null : starValue);
                         }}
                         onMouseEnter={() => setHoverRating(starValue)}
@@ -601,7 +805,7 @@ export function AddBookModal({
                         className="p-1 hover:scale-110 transition-transform"
                       >
                         <Star
-                          className={`size-6 transition-colors ${
+                          className={`size-7 transition-colors ${
                             isFilled
                               ? "fill-amber-500 text-amber-500"
                               : "text-muted-foreground/30"
@@ -616,7 +820,7 @@ export function AddBookModal({
                       variant="ghost"
                       size="sm"
                       onClick={() => setRating(null)}
-                      className="ml-auto h-7 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                      className="ml-auto h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground"
                     >
                       Clear
                     </Button>
@@ -627,21 +831,21 @@ export function AddBookModal({
               {/* Date Read (Only shown/relevant for Read shelf) */}
               {targetShelf === "read" && (
                 <div>
-                  <label className="text-xs font-bold text-foreground block mb-1.5">
+                  <label className="text-sm font-bold text-foreground block mb-1.5">
                     Date Finished
                   </label>
                   <Input
                     type="date"
                     value={dateRead}
                     onChange={(e) => setDateRead(e.target.value)}
-                    className="h-9 text-xs bg-background/80"
+                    className="h-10 text-sm bg-background/80"
                   />
                 </div>
               )}
 
               {/* User Review / Personal Notes */}
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1.5">
+                <label className="text-sm font-bold text-foreground block mb-1.5">
                   Personal Thoughts or Review Notes (Optional)
                 </label>
                 <textarea
@@ -649,27 +853,27 @@ export function AddBookModal({
                   onChange={(e) => setUserReview(e.target.value)}
                   placeholder="Record your takeaways, memorable quotes, or reading notes..."
                   rows={3}
-                  className="w-full rounded-xl border border-border/60 bg-background/80 p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                  className="w-full rounded-xl border border-border/60 bg-background/80 p-3.5 text-sm text-foreground placeholder:text-muted-foreground/75 focus:outline-none focus:ring-1 focus:ring-primary resize-none leading-relaxed"
                 />
               </div>
 
               {/* Error Notification */}
               {submitError && (
-                <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs">
+                <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs sm:text-sm">
                   {submitError}
                 </div>
               )}
             </div>
 
             {/* Modal Footer Controls */}
-            <div className="shrink-0 pt-4 mt-2 border-t border-border/50 flex items-center justify-end gap-2">
+            <div className="shrink-0 pt-4 mt-2 border-t border-border/50 flex items-center justify-end gap-2.5">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
-                className="text-xs"
+                className="h-10 text-sm px-4"
               >
                 Cancel
               </Button>
@@ -677,19 +881,27 @@ export function AddBookModal({
                 type="submit"
                 size="sm"
                 disabled={isSubmitting}
-                className="text-xs font-semibold gap-1.5"
+                className="h-10 text-sm font-semibold gap-2 px-5 shadow-sm"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                     <span>Saving Book...</span>
                   </>
-                ) : (
-                  <>
-                    <Plus className="size-3.5" />
-                    <span>Add to Library</span>
-                  </>
-                )}
+                ) : (() => {
+                  const selectedExisting = selectedBook ? matchExistingBook(selectedBook) : null;
+                  return selectedExisting ? (
+                    <>
+                      <Check className="size-4" />
+                      <span>Update Shelf & Rating</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="size-4" />
+                      <span>Add to Library</span>
+                    </>
+                  );
+                })()}
               </Button>
             </div>
           </form>

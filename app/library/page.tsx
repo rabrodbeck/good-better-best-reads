@@ -662,6 +662,7 @@ export default function LibraryPage() {
           onOpenChange={setIsAddModalOpen}
           onBookAdded={handleBookAdded}
           existingBookTitles={existingBookTitles}
+          existingBooks={books}
         />
       </div>
     );
@@ -1202,6 +1203,7 @@ export default function LibraryPage() {
         onOpenChange={setIsAddModalOpen}
         onBookAdded={handleBookAdded}
         existingBookTitles={existingBookTitles}
+        existingBooks={books}
       />
 
       {/* Library Export Modal */}

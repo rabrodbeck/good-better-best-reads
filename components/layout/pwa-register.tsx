@@ -19,10 +19,10 @@ export function PwaRegister() {
           console.warn("Service worker registration skipped:", err);
         });
 
-      // Ensure current page HTML is stored in cache for offline refresh
-      if ("caches" in window && navigator.onLine) {
+      // Ensure current page HTML is stored in cache for offline refresh (production only to prevent stale dev caching)
+      if ("caches" in window && navigator.onLine && process.env.NODE_ENV === "production") {
         const path = window.location.pathname;
-        window.caches.open("gbbr-pwa-v6").then((cache) => {
+        window.caches.open("gbbr-pwa-v8").then((cache) => {
           fetch(path)
             .then((res) => {
               if (res.ok) cache.put(path, res);
