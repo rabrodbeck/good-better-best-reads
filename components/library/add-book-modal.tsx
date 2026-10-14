@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BarcodeScannerModal } from "@/components/library/barcode-scanner-modal";
+import { LibrarianVerdictCard } from "@/components/library/librarian-verdict-card";
 
 export interface SearchResultItem {
   key: string;
@@ -319,82 +320,96 @@ export function AddBookModal({
                     return (
                       <div
                         key={book.key || `${book.title}-${book.author}`}
-                        onClick={() => handleSelectBook(book)}
-                        className="group flex items-start gap-3.5 p-3 rounded-xl border border-border/50 bg-card/40 hover:bg-card/90 hover:border-primary/50 transition-all cursor-pointer"
+                        className="group flex flex-col p-3 rounded-xl border border-border/50 bg-card/40 hover:bg-card/90 hover:border-primary/50 transition-all"
                       >
-                        {/* Cover Preview */}
-                        <div className="relative w-12 h-16 shrink-0 rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs flex items-center justify-center">
-                          {book.cover_url ? (
-                            <Image
-                              src={book.cover_url}
-                              alt={book.title}
-                              fill
-                              className="object-cover group-hover:scale-105 transition-transform duration-200"
-                              sizes="48px"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center p-1 text-center">
-                              <ImageOff className="size-4 text-muted-foreground/60" />
+                        <div
+                          onClick={() => handleSelectBook(book)}
+                          className="flex items-start gap-3.5 cursor-pointer"
+                        >
+                          {/* Cover Preview */}
+                          <div className="relative w-14 h-20 shrink-0 rounded-md overflow-hidden bg-muted/60 border border-border/40 shadow-xs flex items-center justify-center">
+                            {book.cover_url ? (
+                              <Image
+                                src={book.cover_url}
+                                alt={book.title}
+                                fill
+                                className="object-cover group-hover:scale-105 transition-transform duration-200"
+                                sizes="56px"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center p-1 text-center">
+                                <ImageOff className="size-5 text-muted-foreground/60" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Book Metadata */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm sm:text-base font-bold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
+                                {book.title}
+                              </h4>
+                              {isAlreadyInLibrary && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] sm:text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20 shrink-0 font-medium"
+                                >
+                                  In Library
+                                </Badge>
+                              )}
                             </div>
-                          )}
-                        </div>
-
-                        {/* Book Metadata */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-1 group-hover:text-primary transition-colors">
-                              {book.title}
-                            </h4>
-                            {isAlreadyInLibrary && (
-                              <Badge
-                                variant="secondary"
-                                className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 shrink-0"
-                              >
-                                In Library
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                            {book.author}
-                          </p>
-
-                          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] text-muted-foreground/80">
-                            {book.published_year && (
-                              <span className="flex items-center gap-0.5">
-                                <Calendar className="size-2.5" />
-                                <span>{book.published_year}</span>
-                              </span>
-                            )}
-                            {book.page_count && (
-                              <span className="flex items-center gap-0.5">
-                                <FileText className="size-2.5" />
-                                <span>{book.page_count} pages</span>
-                              </span>
-                            )}
-                            {book.genres && book.genres.length > 0 && (
-                              <span className="line-clamp-1 text-muted-foreground/60">
-                                • {book.genres.slice(0, 2).join(", ")}
-                              </span>
-                            )}
-                          </div>
-
-                          {book.snippet && (
-                            <p className="mt-1 text-[10px] text-muted-foreground italic line-clamp-2 leading-relaxed">
-                              &ldquo;{book.snippet}&rdquo;
+                            <p className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-1 mt-0.5">
+                              {book.author}
                             </p>
-                          )}
+
+                            <div className="flex flex-wrap items-center gap-2.5 mt-1.5 text-xs text-muted-foreground">
+                              {book.published_year && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="size-3 text-muted-foreground/80" />
+                                  <span>{book.published_year}</span>
+                                </span>
+                              )}
+                              {book.page_count && (
+                                <span className="flex items-center gap-1">
+                                  <FileText className="size-3 text-muted-foreground/80" />
+                                  <span>{book.page_count} pages</span>
+                                </span>
+                              )}
+                              {book.genres && book.genres.length > 0 && (
+                                <span className="line-clamp-1 text-muted-foreground/80">
+                                  • {book.genres.slice(0, 3).join(", ")}
+                                </span>
+                              )}
+                            </div>
+
+                            {book.snippet && (
+                              <p className="mt-1.5 text-xs text-muted-foreground italic line-clamp-2 leading-relaxed">
+                                &ldquo;{book.snippet}&rdquo;
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Select Action Button */}
+                          <div className="shrink-0 self-center">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-8 sm:h-9 text-xs sm:text-sm px-3.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors font-medium shadow-xs"
+                            >
+                              <Plus className="size-4 mr-1" />
+                              <span>Select</span>
+                            </Button>
+                          </div>
                         </div>
 
-                        {/* Select Action Button */}
-                        <div className="shrink-0 self-center">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="h-7 text-xs px-2.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                          >
-                            <Plus className="size-3.5 mr-1" />
-                            <span>Select</span>
-                          </Button>
+                        {/* Librarian In-Store Taste Verdict */}
+                        <div className="pl-0 sm:pl-[70px]">
+                          <LibrarianVerdictCard
+                            book={book}
+                            onFindBook1={(firstBookTitle) => {
+                              setQuery(firstBookTitle);
+                            }}
+                          />
                         </div>
                       </div>
                     );
