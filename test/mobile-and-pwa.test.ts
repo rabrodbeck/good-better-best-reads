@@ -71,6 +71,7 @@ describe("Phase 5: Mobile & Native PWA Polish", () => {
       expect(extractIsbnFromBarcodeText("ISBN 978-0-441-01359-3 Book")).toBe("9780441013593");
       expect(extractIsbnFromBarcodeText("BARCODE: 0-441-01359-7 EAN")).toBe("0441013597");
       expect(extractIsbnFromBarcodeText("9780143127741")).toBe("9780143127741");
+      expect(extractIsbnFromBarcodeText("978163893599551800")).toBe("9781638935995"); // EAN-13 + EAN-5 addon
       expect(extractIsbnFromBarcodeText("NO_BARCODE_HERE")).toBeNull();
     });
   });

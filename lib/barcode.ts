@@ -65,11 +65,23 @@ export function extractIsbnFromBarcodeText(text: string): string | null {
   if (!text) return null;
   const clean = cleanScannedBarcode(text);
 
+  // If scanner returns Bookland EAN-13 with 5-digit price extension (18 digits, e.g. 978163893599551800)
+  if (clean.length === 18 && (clean.startsWith("978") || clean.startsWith("979"))) {
+    const candidate = clean.slice(0, 13);
+    if (validateIsbn13(candidate)) return candidate;
+  }
+
+  // If scanner returns EAN-13 with 2-digit extension (15 digits)
+  if (clean.length === 15 && (clean.startsWith("978") || clean.startsWith("979"))) {
+    const candidate = clean.slice(0, 13);
+    if (validateIsbn13(candidate)) return candidate;
+  }
+
   // Direct match
   if (isValidIsbn(clean)) return clean;
 
   // Search inside string for 13-digit EAN-13 starting with 978 or 979
-  const match13 = text.match(/\b(97[89][-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?\d)\b/);
+  const match13 = text.match(/(97[89][-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?\d)/);
   if (match13) {
     const candidate = cleanScannedBarcode(match13[1]);
     if (validateIsbn13(candidate)) return candidate;

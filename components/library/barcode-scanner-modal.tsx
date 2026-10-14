@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { extractIsbnFromBarcodeText, isValidIsbn } from "@/lib/barcode";
+import type { IScannerControls } from "@zxing/browser";
 
 interface BarcodeScannerModalProps {
   open: boolean;
@@ -35,20 +36,21 @@ export function BarcodeScannerModal({
 }: BarcodeScannerModalProps) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
-  const scanIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const zxingControlsRef = React.useRef<IScannerControls | null>(null);
 
   const [hasCamera, setHasCamera] = React.useState<boolean>(true);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
   const [isScanning, setIsScanning] = React.useState(false);
   const [manualIsbn, setManualIsbn] = React.useState("");
   const [manualError, setManualError] = React.useState<string | null>(null);
-  const [hasBarcodeDetector, setHasBarcodeDetector] = React.useState<boolean>(false);
 
-  // Stop camera tracks cleanly
+  // Stop camera tracks and scanner loop cleanly
   const stopCamera = React.useCallback(() => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
+    if (zxingControlsRef.current) {
+      try {
+        zxingControlsRef.current.stop();
+      } catch {}
+      zxingControlsRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -75,14 +77,10 @@ export function BarcodeScannerModal({
     [onOpenChange, onScanSuccess, stopCamera]
   );
 
-  // Start video stream when modal opens
+  // Start video stream and ZXing scanner when modal opens
   const startCamera = React.useCallback(async () => {
     setCameraError(null);
     setManualError(null);
-
-    // Check BarcodeDetector API support
-    const hasDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
-    setHasBarcodeDetector(hasDetector);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setHasCamera(false);
@@ -107,36 +105,54 @@ export function BarcodeScannerModal({
       }
       setIsScanning(true);
 
-      if (hasDetector) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const DetectorClass = (window as any).BarcodeDetector;
-        const detector = new DetectorClass({
-          formats: ["ean_13", "ean_8", "upc_a", "code_128"],
-        });
+      // Dynamically import ZXing to avoid any SSR issues
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const { DecodeHintType, BarcodeFormat } = await import("@zxing/library");
 
-        // Scan frame every 250ms
-        scanIntervalRef.current = setInterval(async () => {
-          if (!videoRef.current || videoRef.current.readyState < 2) return;
-          try {
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes?.length > 0) {
-              const rawValue = barcodes[0].rawValue;
-              if (rawValue) {
-                handleBarcodeDetected(rawValue);
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      const codeReader = new BrowserMultiFormatReader(hints, {
+        delayBetweenScanAttempts: 200,
+      });
+
+      if (videoRef.current) {
+        const controls = await codeReader.decodeFromVideoElement(
+          videoRef.current,
+          (result, error, controls) => {
+            if (result) {
+              const text = result.getText();
+              const isbn = extractIsbnFromBarcodeText(text);
+              if (isbn) {
+                try {
+                  controls.stop();
+                } catch {}
+                handleBarcodeDetected(isbn);
               }
             }
-          } catch {
-            // Ignore scan loop errors for single frames
           }
-        }, 250);
+        );
+        zxingControlsRef.current = controls;
       }
     } catch (err: any) {
       console.warn("Camera start failed:", err);
       setHasCamera(false);
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setCameraError("Camera permission was denied. Please allow camera access in your browser settings or enter the ISBN manually.");
+        setCameraError(
+          "Camera permission was denied. Please allow camera access in your browser settings or enter the ISBN manually."
+        );
       } else {
-        setCameraError("Could not connect to camera device. You can upload a photo of the barcode or type the ISBN below.");
+        setCameraError(
+          "Could not connect to camera device. You can upload a photo of the barcode or type the ISBN below."
+        );
       }
     }
   }, [handleBarcodeDetected]);
@@ -150,31 +166,51 @@ export function BarcodeScannerModal({
     return () => stopCamera();
   }, [open, startCamera, stopCamera]);
 
-  // Fallback: image file upload scanner
+  // Fallback: image file upload scanner using ZXing
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
-      try {
-        const imageBitmap = await createImageBitmap(file);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const DetectorClass = (window as any).BarcodeDetector;
-        const detector = new DetectorClass({
-          formats: ["ean_13", "ean_8", "upc_a", "code_128"],
-        });
-        const barcodes = await detector.detect(imageBitmap);
-        if (barcodes?.length > 0 && barcodes[0].rawValue) {
-          handleBarcodeDetected(barcodes[0].rawValue);
-          return;
+    try {
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const { DecodeHintType, BarcodeFormat } = await import("@zxing/library");
+
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      const codeReader = new BrowserMultiFormatReader(hints);
+      const imgUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = imgUrl;
+
+      img.onload = async () => {
+        try {
+          const result = await codeReader.decodeFromImageElement(img);
+          URL.revokeObjectURL(imgUrl);
+          if (result) {
+            const isbn = extractIsbnFromBarcodeText(result.getText());
+            if (isbn) {
+              handleBarcodeDetected(isbn);
+              return;
+            }
+          }
+          setManualError("No valid book barcode found in this photo. Try typing the ISBN below.");
+        } catch {
+          URL.revokeObjectURL(imgUrl);
+          setManualError("Could not detect barcode in photo. Please ensure it is well lit or enter manually.");
         }
-        setManualError("No barcode found in uploaded photo. Try typing the ISBN below.");
-      } catch (err) {
-        console.error("Barcode photo detection error:", err);
-        setManualError("Could not process photo. Please enter the ISBN manually.");
-      }
-    } else {
-      setManualError("Image scanning is not supported by this browser. Please type the ISBN number below.");
+      };
+    } catch (err) {
+      console.error("Barcode photo detection error:", err);
+      setManualError("Could not process photo. Please enter the ISBN manually.");
     }
   };
 
@@ -269,7 +305,7 @@ export function BarcodeScannerModal({
             </p>
             <form onSubmit={handleManualSubmit} className="flex gap-2">
               <Input
-                placeholder="e.g. 9780441013593"
+                placeholder="e.g. 9781638935995"
                 value={manualIsbn}
                 onChange={(e) => {
                   setManualIsbn(e.target.value);
