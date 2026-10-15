@@ -128,7 +128,8 @@ export function calculateLiteraryMilestone(totalPages: number): LiteraryMileston
 
 export function computeReadingInsights(
   books: InsightBookItem[],
-  targetYear?: number | "all"
+  targetYear?: number | "all",
+  fallbackGenres?: string[]
 ): ReadingInsightsData {
   const yearFilter = targetYear !== undefined ? targetYear : new Date().getFullYear();
 
@@ -273,6 +274,29 @@ export function computeReadingInsights(
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
+
+  // Fallback to reader's taste themes/tropes if books lack genre metadata (e.g., CSV imports)
+  if (topGenres.length < 2 && fallbackGenres && fallbackGenres.length > 0 && totalBooks > 0) {
+    const weights = [0.45, 0.36, 0.28, 0.20, 0.15, 0.10, 0.08];
+    const existingNames = new Set(topGenres.map((g) => g.genre.toLowerCase()));
+    const validFallbacks = fallbackGenres
+      .map((g) => g.trim())
+      .filter((g) => g.length > 0 && !existingNames.has(g.toLowerCase()));
+
+    let prevCount = topGenres.length > 0 ? topGenres[topGenres.length - 1].count : totalBooks;
+
+    for (let i = 0; i < validFallbacks.length && topGenres.length < 7; i++) {
+      const genre = validFallbacks[i];
+      const weight = weights[topGenres.length] ?? 0.05;
+      let count = Math.max(1, Math.round(totalBooks * weight));
+      if (count > prevCount) {
+        count = prevCount;
+      }
+      prevCount = count;
+      const percentage = Math.round((count / totalBooks) * 100);
+      topGenres.push({ genre, count, percentage });
+    }
+  }
 
   const monthsElapsed = yearFilter === new Date().getFullYear()
     ? Math.max(1, new Date().getMonth() + 1)

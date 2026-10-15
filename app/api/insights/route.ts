@@ -42,27 +42,37 @@ export async function GET(req: Request) {
 
     const admin = getAdminClient();
 
-    const { data: userBooksData, error } = await admin
-      .from("user_books")
-      .select(`
-        id,
-        book_id,
-        shelf,
-        rating,
-        date_read,
-        created_at,
-        books (
+    const [userBooksResult, tasteProfileResult] = await Promise.all([
+      admin
+        .from("user_books")
+        .select(`
           id,
-          title,
-          author,
-          cover_url,
-          page_count,
-          genres,
-          published_year
-        )
-      `)
-      .eq("user_id", user.id)
-      .eq("shelf", "read");
+          book_id,
+          shelf,
+          rating,
+          date_read,
+          created_at,
+          books (
+            id,
+            title,
+            author,
+            cover_url,
+            page_count,
+            genres,
+            published_year
+          )
+        `)
+        .eq("user_id", user.id)
+        .eq("shelf", "read"),
+      admin
+        .from("taste_profiles")
+        .select("top_tropes")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
+
+    const { data: userBooksData, error } = userBooksResult;
+    const fallbackGenres = tasteProfileResult.data?.top_tropes || [];
 
     if (error) {
       console.error("Insights fetch error:", error);
@@ -103,7 +113,7 @@ export async function GET(req: Request) {
     });
 
     const availableYears = Array.from(yearSet).sort((a, b) => b - a);
-    const insights = computeReadingInsights(formattedBooks, targetYear);
+    const insights = computeReadingInsights(formattedBooks, targetYear, fallbackGenres);
 
     return NextResponse.json({
       success: true,

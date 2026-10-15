@@ -227,6 +227,28 @@ describe("Phase 4: Gamification & Reading Insights", () => {
       expect(sciFi?.percentage).toBe(75);
     });
 
+    it("falls back to reader taste tropes/themes when book catalog genres are sparse or missing", () => {
+      const booksWithoutGenres: InsightBookItem[] = [
+        { id: "1", book_id: "b1", title: "Book One", author: "Author A", genres: [], date_read: "2026-03-01T00:00:00Z" },
+        { id: "2", book_id: "b2", title: "Book Two", author: "Author B", genres: [], date_read: "2026-04-01T00:00:00Z" },
+        { id: "3", book_id: "b3", title: "Book Three", author: "Author C", genres: [], date_read: "2026-05-01T00:00:00Z" },
+        { id: "4", book_id: "b4", title: "Book Four", author: "Author D", genres: [], date_read: "2026-06-01T00:00:00Z" },
+      ];
+
+      const fallbackTropes = [
+        "Enemies to Lovers",
+        "Morally Grey Hero",
+        "Dark Romance",
+        "Psychological Thriller",
+      ];
+
+      const insights = computeReadingInsights(booksWithoutGenres, 2026, fallbackTropes);
+      expect(insights.topGenres.length).toBe(4);
+      expect(insights.topGenres[0].genre).toBe("Enemies to Lovers");
+      expect(insights.topGenres[0].count).toBeGreaterThanOrEqual(1);
+      expect(insights.topGenres[0].percentage).toBeGreaterThanOrEqual(25);
+    });
+
     it("calculates fun literary milestone comparisons", () => {
       expect(calculateLiteraryMilestone(0).comparisonText).toContain("Ready for your first reading adventure");
       expect(calculateLiteraryMilestone(800).comparisonText).toContain("George Orwell's '1984'");
