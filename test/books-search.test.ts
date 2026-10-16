@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { normalizeTitle, searchGoogleBooks, GET } from "@/app/api/books/search/route";
+import { normalizeTitle, searchGoogleBooks, GET, clearIsbnCache } from "@/app/api/books/search/route";
 import { isStudyGuideOrJunk, isBadCoverUrl, isbn13To10 } from "@/services/books/cover-service";
 import { NextRequest } from "next/server";
 
@@ -160,6 +160,49 @@ describe("Multi-Provider Book Search (Phase 1)", () => {
       // Converts http to https for Google Books images
       expect(first.cover_url).toContain("https://books.google.com");
       expect(first.published_year).toBe(1969);
+    });
+
+    it("handles direct ISBN lookup via parallel Open Library Books API and caches results", async () => {
+      clearIsbnCache();
+      const mockOlIsbnData = {
+        "ISBN:9780441013593": {
+          title: "Dune",
+          authors: [{ name: "Frank Herbert" }],
+          publish_date: "August 2, 2005",
+          number_of_pages: 544,
+          cover: { large: "https://covers.openlibrary.org/b/id/14856017-L.jpg" },
+          subjects: [{ name: "Science Fiction" }],
+        },
+      };
+
+      const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(async (url: any) => {
+        if (typeof url === "string" && url.includes("openlibrary.org/api/books")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockOlIsbnData,
+          } as any;
+        }
+        return { ok: false, status: 404, json: async () => ({}) } as any;
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/books/search?q=978-0441-013593");
+      const res = await GET(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.results.length).toBeGreaterThanOrEqual(1);
+      expect(json.results[0].title).toBe("Dune");
+      expect(json.results[0].author).toBe("Frank Herbert");
+      expect(json.results[0].cover_url).toBe("https://covers.openlibrary.org/b/id/14856017-L.jpg");
+
+      // Verify second call hits in-memory cache without making any external fetch
+      fetchSpy.mockClear();
+      const req2 = new NextRequest("http://localhost:3000/api/books/search?q=9780441013593");
+      const res2 = await GET(req2);
+      const json2 = await res2.json();
+      expect(json2.results[0].title).toBe("Dune");
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 });

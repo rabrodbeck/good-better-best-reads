@@ -28,16 +28,48 @@ export function BarcodeScannerView({
   const streamRef = React.useRef<MediaStream | null>(null);
   const zxingControlsRef = React.useRef<IScannerControls | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const nativeDetectorStopRef = React.useRef<(() => void) | null>(null);
 
   const [hasCamera, setHasCamera] = React.useState<boolean>(true);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
   const [isScanning, setIsScanning] = React.useState(false);
+  const [barcodeLocked, setBarcodeLocked] = React.useState(false);
   const [manualIsbn, setManualIsbn] = React.useState("");
   const [manualError, setManualError] = React.useState<string | null>(null);
   const [showManualInput, setShowManualInput] = React.useState(false);
 
+  // Synthesize positive audio feedback chime (880Hz -> 1320Hz)
+  const playScanChime = React.useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08);
+
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {}
+  }, []);
+
   // Stop camera tracks cleanly
   const stopCamera = React.useCallback(() => {
+    if (nativeDetectorStopRef.current) {
+      try {
+        nativeDetectorStopRef.current();
+      } catch {}
+      nativeDetectorStopRef.current = null;
+    }
     if (zxingControlsRef.current) {
       try {
         zxingControlsRef.current.stop();
@@ -55,22 +87,25 @@ export function BarcodeScannerView({
     (rawCode: string) => {
       const isbn = extractIsbnFromBarcodeText(rawCode);
       if (isbn) {
+        setBarcodeLocked(true);
+        playScanChime();
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           try {
-            navigator.vibrate(120);
+            navigator.vibrate([40, 30, 40]);
           } catch {}
         }
         stopCamera();
         onScanSuccess(isbn);
       }
     },
-    [onScanSuccess, stopCamera]
+    [onScanSuccess, stopCamera, playScanChime]
   );
 
-  // Start camera stream and ZXing reader
+  // Start camera stream and high-performance native BarcodeDetector / ZXing reader
   const startCamera = React.useCallback(async () => {
     setCameraError(null);
     setManualError(null);
+    setBarcodeLocked(false);
 
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setHasCamera(false);
@@ -95,27 +130,65 @@ export function BarcodeScannerView({
       }
       setIsScanning(true);
 
+      // 1. FAST-PATH: Native iOS 17+ / Android Chrome BarcodeDetector (hardware Apple Vision Engine)
+      if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+        try {
+          const nativeDetector = new (window as any).BarcodeDetector({
+            formats: ["ean_13", "upc_a", "ean_8"],
+          });
+
+          let stopped = false;
+          nativeDetectorStopRef.current = () => {
+            stopped = true;
+          };
+
+          const scanNativeLoop = async () => {
+            if (stopped || !videoRef.current) return;
+            if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+              try {
+                const barcodes = await nativeDetector.detect(videoRef.current);
+                if (barcodes && barcodes.length > 0) {
+                  for (const bc of barcodes) {
+                    const isbn = extractIsbnFromBarcodeText(bc.rawValue);
+                    if (isbn) {
+                      handleBarcodeDetected(isbn);
+                      return;
+                    }
+                  }
+                }
+              } catch {}
+            }
+            if (!stopped) {
+              requestAnimationFrame(scanNativeLoop);
+            }
+          };
+
+          requestAnimationFrame(scanNativeLoop);
+          return;
+        } catch (nativeErr) {
+          console.warn("Native BarcodeDetector fallback to ZXing:", nativeErr);
+        }
+      }
+
+      // 2. High-Efficiency ZXing Fallback (Restricted strictly to Bookland EAN-13 & retail barcodes)
       const { BrowserMultiFormatReader } = await import("@zxing/browser");
       const { DecodeHintType, BarcodeFormat } = await import("@zxing/library");
 
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [
         BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
         BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
+        BarcodeFormat.EAN_8,
       ]);
 
       const reader = new BrowserMultiFormatReader(hints, {
-        delayBetweenScanAttempts: 80,
+        delayBetweenScanAttempts: 40,
       });
 
       if (videoRef.current) {
         const controls = await reader.decodeFromVideoElement(
           videoRef.current,
-          (result, error) => {
+          (result) => {
             if (result) {
               const text = result.getText();
               const isbn = extractIsbnFromBarcodeText(text);
@@ -224,18 +297,52 @@ export function BarcodeScannerView({
         {/* Viewfinder Target Overlays */}
         {isScanning && !cameraError && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
-            <div className="relative w-4/5 h-3/5 max-w-xs border-2 border-primary/60 rounded-xl shadow-lg flex items-center justify-center overflow-hidden">
+            <div
+              className={`relative w-4/5 h-3/5 max-w-xs border-2 rounded-xl shadow-lg flex items-center justify-center overflow-hidden transition-all duration-200 ${
+                barcodeLocked
+                  ? "border-emerald-500 shadow-[0_0_24px_rgba(16,185,129,0.6)] scale-[1.02]"
+                  : "border-primary/60"
+              }`}
+            >
               {/* Corner brackets */}
-              <div className="absolute top-0 left-0 size-4 border-t-4 border-l-4 border-primary rounded-tl-sm" />
-              <div className="absolute top-0 right-0 size-4 border-t-4 border-r-4 border-primary rounded-tr-sm" />
-              <div className="absolute bottom-0 left-0 size-4 border-b-4 border-l-4 border-primary rounded-bl-sm" />
-              <div className="absolute bottom-0 right-0 size-4 border-b-4 border-r-4 border-primary rounded-br-sm" />
+              <div
+                className={`absolute top-0 left-0 size-4 border-t-4 border-l-4 rounded-tl-sm transition-colors ${
+                  barcodeLocked ? "border-emerald-400" : "border-primary"
+                }`}
+              />
+              <div
+                className={`absolute top-0 right-0 size-4 border-t-4 border-r-4 rounded-tr-sm transition-colors ${
+                  barcodeLocked ? "border-emerald-400" : "border-primary"
+                }`}
+              />
+              <div
+                className={`absolute bottom-0 left-0 size-4 border-b-4 border-l-4 rounded-bl-sm transition-colors ${
+                  barcodeLocked ? "border-emerald-400" : "border-primary"
+                }`}
+              />
+              <div
+                className={`absolute bottom-0 right-0 size-4 border-b-4 border-r-4 rounded-br-sm transition-colors ${
+                  barcodeLocked ? "border-emerald-400" : "border-primary"
+                }`}
+              />
 
               {/* Laser Scan Animation */}
-              <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_12px_#f43f5e] animate-pulse" />
+              <div
+                className={`w-full h-0.5 animate-pulse transition-all ${
+                  barcodeLocked
+                    ? "bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_16px_#10b981]"
+                    : "bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_12px_#f43f5e]"
+                }`}
+              />
 
-              <div className="absolute bottom-2 text-center text-[10px] text-white/90 bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-full font-mono tracking-wider">
-                Align ISBN barcode
+              <div
+                className={`absolute bottom-2 text-center text-[10px] px-2.5 py-0.5 rounded-full font-mono tracking-wider transition-colors ${
+                  barcodeLocked
+                    ? "text-emerald-300 bg-emerald-950/80 border border-emerald-500/40"
+                    : "text-white/90 bg-black/60 backdrop-blur-xs"
+                }`}
+              >
+                {barcodeLocked ? "Barcode Detected ✓" : "Align ISBN barcode"}
               </div>
             </div>
           </div>

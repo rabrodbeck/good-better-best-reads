@@ -124,6 +124,92 @@ export async function searchGoogleBooks(query: string): Promise<SearchResultItem
   }
 }
 
+interface CachedBookResult {
+  timestamp: number;
+  results: SearchResultItem[];
+}
+
+// In-memory ISBN lookup cache (24hr TTL) for instant sub-millisecond responses
+export const isbnCache = new Map<string, CachedBookResult>();
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
+export function clearIsbnCache() {
+  isbnCache.clear();
+}
+
+/**
+ * High-speed direct Open Library Books API query by ISBN (jscmd=data)
+ */
+export async function fetchOpenLibraryIsbn(cleanIsbn: string): Promise<SearchResultItem | null> {
+  try {
+    const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const book = data[`ISBN:${cleanIsbn}`];
+    if (!book || !book.title) return null;
+
+    const title = book.title.trim();
+    const author = Array.isArray(book.authors) && book.authors[0]?.name
+      ? book.authors[0].name.trim()
+      : "Unknown Author";
+
+    if (isStudyGuideOrJunk(title, author)) return null;
+
+    let coverUrl: string | null = null;
+    if (book.cover?.large) coverUrl = book.cover.large;
+    else if (book.cover?.medium) coverUrl = book.cover.medium;
+    else if (book.cover?.small) coverUrl = book.cover.small;
+
+    const isbn10 = cleanIsbn.length === 10 ? cleanIsbn : isbn13To10(cleanIsbn);
+    if (!coverUrl && isbn10) {
+      coverUrl = `https://images-na.ssl-images-amazon.com/images/P/${isbn10}.01.LZZZZZZZ.jpg`;
+    }
+
+    if (isBadCoverUrl(coverUrl)) coverUrl = null;
+
+    let publishedYear: number | null = null;
+    if (book.publish_date) {
+      const match = String(book.publish_date).match(/\b(19\d\d|20\d\d)\b/);
+      if (match) publishedYear = parseInt(match[1], 10);
+    }
+
+    const genres: string[] = Array.isArray(book.subjects)
+      ? book.subjects.map((s: any) => (typeof s === "string" ? s : s.name)).filter(Boolean).slice(0, 5)
+      : [];
+
+    return {
+      key: book.key || `/isbn/${cleanIsbn}`,
+      title,
+      author,
+      cover_url: coverUrl,
+      published_year: publishedYear,
+      page_count: typeof book.number_of_pages === "number" ? book.number_of_pages : null,
+      isbn: isbn10 || cleanIsbn,
+      isbn13: cleanIsbn.length === 13 ? cleanIsbn : null,
+      genres,
+      snippet: typeof book.notes === "string" ? book.notes : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * High-speed direct Google Books query by ISBN
+ */
+export async function fetchGoogleBooksIsbn(cleanIsbn: string): Promise<SearchResultItem | null> {
+  try {
+    const results = await searchGoogleBooks(`isbn:${cleanIsbn}`);
+    return results.length > 0 ? results[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -157,6 +243,40 @@ export async function GET(request: NextRequest) {
     // 2. Query search
     if (!query || query.length < 2) {
       return NextResponse.json({ results: [] });
+    }
+
+    // FAST-PATH: If query is an ISBN (10 or 13 digits), execute direct parallel lookup
+    const cleanIsbn = query.replace(/[-\s]/g, "").trim();
+    const isIsbn = /^\d{9}[\dX]$/i.test(cleanIsbn) || /^\d{13}$/.test(cleanIsbn);
+
+    if (isIsbn) {
+      // 1. Instant In-Memory Cache (0ms)
+      const cached = isbnCache.get(cleanIsbn);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return NextResponse.json(
+          { results: cached.results },
+          { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400" } }
+        );
+      }
+
+      // 2. Parallel Provider Race (Open Library Direct Books API + Google Books)
+      const [olMatch, gbMatch] = await Promise.all([
+        fetchOpenLibraryIsbn(cleanIsbn),
+        fetchGoogleBooksIsbn(cleanIsbn),
+      ]);
+
+      const primary = olMatch || gbMatch;
+      if (primary) {
+        const results = [primary];
+        if (gbMatch && olMatch && gbMatch.title.toLowerCase() !== olMatch.title.toLowerCase()) {
+          results.push(gbMatch);
+        }
+        isbnCache.set(cleanIsbn, { timestamp: Date.now(), results });
+        return NextResponse.json(
+          { results },
+          { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400" } }
+        );
+      }
     }
 
     let olResults: SearchResultItem[] = [];

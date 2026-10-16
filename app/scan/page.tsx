@@ -59,8 +59,11 @@ function ScanPageContent() {
     setExistingShelf(null);
 
     try {
-      // 1. Search Open Library / global catalog by ISBN
-      const searchRes = await fetch(`/api/books/search?q=${encodeURIComponent(cleanIsbn)}`);
+      // Parallelize book search and user library shelf check
+      const searchPromise = fetch(`/api/books/search?q=${encodeURIComponent(cleanIsbn)}`);
+      const libraryPromise = fetch("/api/library").catch(() => null);
+
+      const [searchRes, libRes] = await Promise.all([searchPromise, libraryPromise]);
       const searchData = await searchRes.json();
       const items = searchData.results || searchData.books || [];
 
@@ -83,9 +86,8 @@ function ScanPageContent() {
       setBook(bookData);
 
       // 2. Check if user already has this book in their library
-      try {
-        const libRes = await fetch("/api/library");
-        if (libRes.ok) {
+      if (libRes && libRes.ok) {
+        try {
           const libData = await libRes.json();
           const libraryBooks = libData.books || libData.library || [];
           const existing = libraryBooks.find(
@@ -97,8 +99,8 @@ function ScanPageContent() {
           if (existing) {
             setExistingShelf(existing.shelf);
           }
-        }
-      } catch {}
+        } catch {}
+      }
     } catch (err: any) {
       console.error("Scan lookup error:", err);
       setFetchError(err.message || "Failed to find book details.");
