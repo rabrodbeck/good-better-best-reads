@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateBookEmbedding } from "@/services/taste/embedding-generator";
 import { calculateTasteOverlap, UserBookData } from "@/lib/friends";
+import { checkAndDispatchGoalMilestones } from "@/lib/milestones";
 
 export const dynamic = "force-dynamic";
 
@@ -471,6 +472,13 @@ export async function POST(request: Request) {
       user_shelves: [targetShelf],
     };
 
+    // 8. Check for Reading Goal milestones if added directly to read shelf
+    if (targetShelf === "read") {
+      checkAndDispatchGoalMilestones(userId).catch((err) =>
+        console.warn("Could not check goal milestones on add:", err)
+      );
+    }
+
     return NextResponse.json({
       success: true,
       book: returnedBook,
@@ -619,6 +627,13 @@ export async function PATCH(request: Request) {
       user_review: updatedRecord.user_review || null,
       user_shelves: updatedRecord.user_shelves || [],
     };
+
+    // Check for Reading Goal milestones if updated to read shelf or completed
+    if (updatedRecord.shelf === "read") {
+      checkAndDispatchGoalMilestones(userId).catch((err) =>
+        console.warn("Could not check goal milestones on update:", err)
+      );
+    }
 
     return NextResponse.json({
       success: true,
