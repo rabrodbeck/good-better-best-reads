@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, BookMarked, Sparkles, Dna, UploadCloud, Users, Plus, Check, BarChart3 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { AuthButton } from "./auth-button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { AddBookModal, AddedBookItem } from "@/components/library/add-book-modal";
 
@@ -128,6 +129,7 @@ export function Navbar() {
             </Button>
           </Link>
 
+          <NotificationBell />
           <AuthButton />
           <ThemeToggle />
         </div>
