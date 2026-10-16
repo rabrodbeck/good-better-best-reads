@@ -3,6 +3,7 @@ import * as dotenv from "dotenv";
 import {
   isPushAllowedForType,
   DEFAULT_NOTIFICATION_PREFERENCES,
+  ensureVapidConfigured,
 } from "@/lib/notifications";
 import { NotificationType } from "@/types/database";
 
@@ -60,6 +61,10 @@ describe("Phase 6: Web Push & In-App Notifications Foundation (Issue #55, #56)",
       const privKey = process.env.VAPID_PRIVATE_KEY;
       expect(privKey).toBeDefined();
       expect(privKey?.length).toBeGreaterThan(20);
+    });
+
+    it("successfully configures VAPID details with ensureVapidConfigured", () => {
+      expect(ensureVapidConfigured()).toBe(true);
     });
   });
 });

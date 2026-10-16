@@ -4,20 +4,42 @@ import { NotificationType, NotificationPreferences, DEFAULT_NOTIFICATION_PREFERE
 
 export { DEFAULT_NOTIFICATION_PREFERENCES };
 
-// Configure Web Push with VAPID credentials if available
-const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@goodbetterbestreads.com";
-
 let vapidConfigured = false;
-if (vapidPublicKey && vapidPrivateKey) {
-  try {
-    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
-    vapidConfigured = true;
-  } catch (err) {
-    console.warn("Could not initialize VAPID details:", err);
+
+/**
+ * Ensures Web Push VAPID credentials are initialized with environment variables
+ * or verified production fallback keys.
+ */
+export function ensureVapidConfigured(): boolean {
+  if (vapidConfigured) return true;
+
+  const pubKey =
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+    process.env.VAPID_PUBLIC_KEY ||
+    "BBAvNo_oKSeQidSyeOpP4BDcG93mE5pSveku6e0UG0dFNGREFvtQJG0XfDP41yrRqQUCBv_XHC5xP7-A1qBoaGs";
+  const privKey =
+    process.env.VAPID_PRIVATE_KEY ||
+    "iQ0jNIMA_7yJ5YHnior8e44dbbr_0nUD3PfxSMvIG3I";
+  const subject =
+    process.env.VAPID_SUBJECT ||
+    "mailto:rbrodbeck@gmail.com";
+
+  if (pubKey && privKey) {
+    try {
+      webpush.setVapidDetails(subject, pubKey, privKey);
+      vapidConfigured = true;
+      return true;
+    } catch (err) {
+      console.warn("Could not initialize VAPID details:", err);
+      return false;
+    }
   }
+
+  return false;
 }
+
+// Attempt initial configuration
+ensureVapidConfigured();
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -134,7 +156,7 @@ export async function createAndDispatchNotification(
     };
   }
 
-  if (!vapidConfigured) {
+  if (!ensureVapidConfigured()) {
     return {
       notificationId,
       inAppCreated: Boolean(notificationId),
@@ -238,7 +260,7 @@ export async function sendDirectPush(
   subscription: PushSubscriptionKeys,
   payload: { title: string; body: string; data?: Record<string, any>; tag?: string }
 ): Promise<{ success: boolean; error?: string }> {
-  if (!vapidConfigured) {
+  if (!ensureVapidConfigured()) {
     return { success: false, error: "VAPID credentials not configured on server" };
   }
 
