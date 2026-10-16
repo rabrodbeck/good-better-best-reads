@@ -12,6 +12,7 @@ import {
   UploadCloud,
   ChevronDown,
   Users,
+  Settings,
 } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -218,6 +219,15 @@ export function AuthButton() {
             >
               <UploadCloud className="size-4 text-blue-500" />
               <span>Import Books</span>
+            </Link>
+
+            <Link
+              href="/profile"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/80 transition-colors"
+            >
+              <Settings className="size-4 text-primary" />
+              <span>Profile & Alerts</span>
             </Link>
           </div>
 
