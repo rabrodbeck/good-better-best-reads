@@ -555,3 +555,60 @@ const OFFLINE_HTML_SHELL = `<!DOCTYPE html>
   </script>
 </body>
 </html>`;
+
+// ---------------------------------------------------------------------------
+// 5. Web Push & Reader Alerts (Phase 6, Issue #56)
+// ---------------------------------------------------------------------------
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload = {
+    title: "TBRScout Alert",
+    body: "You have a new reading notification.",
+    icon: "/icon",
+    badge: "/icon",
+    data: { url: "/library" },
+  };
+
+  try {
+    payload = event.data.json();
+  } catch {
+    payload.body = event.data.text();
+  }
+
+  const title = payload.title || "TBRScout";
+  const options = {
+    body: payload.body || "",
+    icon: payload.icon || "/icon",
+    badge: payload.badge || "/icon",
+    tag: payload.tag || "tbrscout-alert",
+    renotify: true,
+    data: payload.data || { url: "/library" },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/library";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url && "focus" in client) {
+          if ("navigate" in client) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
