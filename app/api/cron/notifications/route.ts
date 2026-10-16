@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runMonthlyReadingRecap } from "@/lib/milestones";
+import { runWeekendReadingNudge } from "@/lib/nudge";
 
 export const dynamic = "force-dynamic";
 
@@ -96,11 +97,14 @@ async function handleCron(req: Request) {
     }
 
     if (type === "weekend-nudge") {
-      // Reserved for Step 6 (Issue #63)
+      const force = url.searchParams.get("force") === "true";
+      const targetUserId = url.searchParams.get("userId") || undefined;
+
+      const result = await runWeekendReadingNudge({ force, targetUserId });
       return NextResponse.json({
         success: true,
         type: "weekend-nudge",
-        message: "Weekend nudge handler ready for Step 6 implementation",
+        result,
       });
     }
 
