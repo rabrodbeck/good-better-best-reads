@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAndDispatchNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -182,6 +183,52 @@ export async function POST(request: Request) {
       }
       console.error("Recommendation insert error:", insertError);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    // Dispatch in-app alert and web push notification to recipient
+    try {
+      const { data: senderProfile } = await admin
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const senderName =
+        senderProfile?.display_name ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        "A friend";
+
+      const bookTitle = bookRecord.title;
+      const notifTitle = `📚 ${senderName} recommended a book!`;
+      const trimmedNote = note?.trim();
+      const shortNote =
+        trimmedNote && trimmedNote.length > 90
+          ? `${trimmedNote.slice(0, 87)}...`
+          : trimmedNote;
+
+      const notifBody = shortNote
+        ? `"${shortNote}" — ${bookTitle}`
+        : `"${bookTitle}" by ${bookRecord.author} was added to your recommendations.`;
+
+      await createAndDispatchNotification({
+        userId: recipientId,
+        type: "friend_recommendation",
+        title: notifTitle,
+        body: notifBody,
+        data: {
+          url: "/library?shelf=recommended",
+          recommendationId: inserted.id,
+          bookId: bookRecord.id,
+          bookTitle: bookRecord.title,
+          bookAuthor: bookRecord.author,
+          coverUrl: bookRecord.cover_url,
+          senderId: user.id,
+          senderName: senderName,
+        },
+      });
+    } catch (notifErr) {
+      console.warn("Could not dispatch friend recommendation notification:", notifErr);
     }
 
     return NextResponse.json({

@@ -273,6 +273,22 @@ export default function LibraryPage() {
   const [isOfflineMode, setIsOfflineMode] = React.useState(false);
 
   React.useEffect(() => {
+    // 0. Check URL deep-link parameter (e.g. /library?shelf=recommended from notifications)
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shelfParam = urlParams.get("shelf");
+      if (
+        shelfParam === "recommended" ||
+        shelfParam === "all" ||
+        shelfParam === "read" ||
+        shelfParam === "currently-reading" ||
+        shelfParam === "to-read" ||
+        shelfParam === "series"
+      ) {
+        setActiveShelf(shelfParam as ShelfFilter);
+      }
+    }
+
     // 1. Immediate offline cache hydration check
     const cached = getOfflineLibrary<BookItem>();
     if (cached?.books?.length) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createAndDispatchNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export async function PATCH(
     // Verify recommendation exists and user is recipient
     const { data: rec, error: recError } = await admin
       .from("book_recommendations")
-      .select("id, recipient_id, book_id, status")
+      .select("id, recipient_id, sender_id, book_id, status")
       .eq("id", recommendationId)
       .maybeSingle();
 
@@ -92,6 +93,46 @@ export async function PATCH(
           user_shelves: ["to-read"],
           updated_at: new Date().toISOString(),
         });
+      }
+
+      // Notify original sender that their friend accepted and queued the recommendation
+      if (rec.sender_id && rec.sender_id !== user.id) {
+        try {
+          const { data: recipientProfile } = await admin
+            .from("profiles")
+            .select("display_name")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          const { data: bookInfo } = await admin
+            .from("books")
+            .select("title, author, cover_url")
+            .eq("id", rec.book_id)
+            .maybeSingle();
+
+          const recipientName =
+            recipientProfile?.display_name ||
+            user.user_metadata?.full_name ||
+            "Your friend";
+
+          const bookTitle = bookInfo?.title || "your recommendation";
+
+          await createAndDispatchNotification({
+            userId: rec.sender_id,
+            type: "friend_recommendation",
+            title: `✨ Recommendation queued!`,
+            body: `${recipientName} added "${bookTitle}" to their To-Read shelf.`,
+            data: {
+              url: `/friends/${user.id}/library`,
+              recommendationId: rec.id,
+              bookId: rec.book_id,
+              recipientId: user.id,
+              recipientName: recipientName,
+            },
+          });
+        } catch (acceptNotifErr) {
+          console.warn("Could not dispatch recommendation acceptance notification:", acceptNotifErr);
+        }
       }
     }
 
