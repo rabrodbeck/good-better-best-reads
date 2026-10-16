@@ -61,7 +61,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="container mx-auto flex h-[calc(100vh-4rem)] max-w-4xl flex-col p-4 sm:p-6">
+    <div className="container mx-auto flex h-[calc(100dvh-9rem)] md:h-[calc(100dvh-4rem)] max-w-4xl flex-col p-3.5 sm:p-6 overscroll-contain">
       {/* Header Bar */}
       <div className="flex items-center justify-between border-b border-border/40 pb-4 mb-4">
         <div className="flex items-center gap-3">
@@ -168,6 +168,7 @@ export default function ChatPage() {
                         coverUrl?: string | null;
                         publishedYear?: number | null;
                         pageCount?: number | null;
+                        isbn?: string | null;
                       };
                       return (
                         <BookCard
@@ -177,6 +178,7 @@ export default function ChatPage() {
                           coverUrl={book.coverUrl}
                           publishedYear={book.publishedYear}
                           pageCount={book.pageCount}
+                          isbn={book.isbn}
                         />
                       );
                     }

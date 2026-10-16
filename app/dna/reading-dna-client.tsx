@@ -190,17 +190,17 @@ export function ReadingDnaClient() {
   }`;
 
   return (
-    <div className="container mx-auto flex max-w-5xl flex-col px-4 py-8 sm:py-12">
+    <div className="container mx-auto flex max-w-5xl flex-col px-4 py-6 sm:py-12 pb-28 sm:pb-16">
       {/* Toast Notification */}
       {copied && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-card/95 px-4 py-3 text-xs font-semibold text-emerald-500 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-20 sm:bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-card/95 px-4 py-3 text-xs font-semibold text-emerald-500 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
           <Check className="size-4 text-emerald-500" />
           <span>Shareable link copied to clipboard!</span>
         </div>
       )}
 
       {downloadSuccess && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-card/95 px-4 py-3 text-xs font-semibold text-emerald-500 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="fixed bottom-20 sm:bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-card/95 px-4 py-3 text-xs font-semibold text-emerald-500 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
           <Download className="size-4 text-emerald-500" />
           <span>Reading DNA card downloaded (1200×630 PNG)!</span>
         </div>

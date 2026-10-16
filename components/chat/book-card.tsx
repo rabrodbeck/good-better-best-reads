@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ImageOff, Calendar, FileText, CheckCircle2 } from "lucide-react";
+import { ImageOff, Calendar, FileText, CheckCircle2, Plus, Check, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface BookCardProps {
   title: string;
@@ -13,6 +14,7 @@ interface BookCardProps {
   publishedYear?: number | null;
   pageCount?: number | null;
   rationale?: string;
+  isbn?: string | null;
 }
 
 export function BookCard({
@@ -22,12 +24,52 @@ export function BookCard({
   publishedYear,
   pageCount,
   rationale,
+  isbn,
 }: BookCardProps) {
   const [imgError, setImgError] = React.useState(false);
+  const [shelfState, setShelfState] = React.useState<"idle" | "adding" | "added">("idle");
+  const [shelfError, setShelfError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setImgError(false);
   }, [coverUrl]);
+
+  const handleAddToShelf = async () => {
+    setShelfState("adding");
+    setShelfError(null);
+    try {
+      const res = await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          author,
+          isbn: isbn || null,
+          cover_url: coverUrl || null,
+          published_year: publishedYear || null,
+          page_count: pageCount || null,
+          shelf: "to-read",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to add book");
+      }
+
+      setShelfState("added");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("book-added", {
+            detail: { title, author, shelf: "to-read" },
+          })
+        );
+      }
+    } catch (err: any) {
+      setShelfState("idle");
+      setShelfError(err.message || "Failed to add to shelf");
+    }
+  };
 
   const optimizedCoverUrl = React.useMemo(() => {
     if (!coverUrl) return null;
@@ -108,6 +150,38 @@ export function BookCard({
                 &ldquo;{rationale}&rdquo;
               </p>
             )}
+
+            {/* Quick 1-Tap Shelf Action Button */}
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={handleAddToShelf}
+                disabled={shelfState === "adding" || shelfState === "added"}
+                className={`h-8 text-xs font-semibold gap-1.5 transition-all ${
+                  shelfState === "added"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-600 border border-emerald-500/30"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                }`}
+              >
+                {shelfState === "adding" ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : shelfState === "added" ? (
+                  <Check className="size-3.5 text-white" />
+                ) : (
+                  <Plus className="size-3.5" />
+                )}
+                <span>
+                  {shelfState === "adding"
+                    ? "Saving..."
+                    : shelfState === "added"
+                    ? "In Want to Read ✓"
+                    : "+ Want to Read"}
+                </span>
+              </Button>
+              {shelfError && (
+                <span className="text-[11px] text-destructive font-medium">{shelfError}</span>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

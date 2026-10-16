@@ -34,6 +34,8 @@ export function BarcodeScannerView({
   const [cameraError, setCameraError] = React.useState<string | null>(null);
   const [isScanning, setIsScanning] = React.useState(false);
   const [barcodeLocked, setBarcodeLocked] = React.useState(false);
+  const [hasTorch, setHasTorch] = React.useState(false);
+  const [torchOn, setTorchOn] = React.useState(false);
   const [manualIsbn, setManualIsbn] = React.useState("");
   const [manualError, setManualError] = React.useState<string | null>(null);
   const [showManualInput, setShowManualInput] = React.useState(false);
@@ -80,8 +82,25 @@ export function BarcodeScannerView({
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+    setTorchOn(false);
+    setHasTorch(false);
     setIsScanning(false);
   }, []);
+
+  const toggleTorch = React.useCallback(async () => {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const nextState = !torchOn;
+      await (track as any).applyConstraints({
+        advanced: [{ torch: nextState }],
+      });
+      setTorchOn(nextState);
+    } catch (err) {
+      console.warn("Could not toggle camera torch:", err);
+    }
+  }, [torchOn]);
 
   const handleBarcodeDetected = React.useCallback(
     (rawCode: string) => {
@@ -106,6 +125,7 @@ export function BarcodeScannerView({
     setCameraError(null);
     setManualError(null);
     setBarcodeLocked(false);
+    setTorchOn(false);
 
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setHasCamera(false);
@@ -124,6 +144,18 @@ export function BarcodeScannerView({
       });
 
       streamRef.current = stream;
+
+      // Check hardware torch support
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && typeof (videoTrack as any).getCapabilities === "function") {
+        try {
+          const caps = (videoTrack as any).getCapabilities();
+          if (caps && Boolean(caps.torch)) {
+            setHasTorch(true);
+          }
+        } catch {}
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
@@ -293,6 +325,23 @@ export function BarcodeScannerView({
           autoPlay
           className="w-full h-full object-cover"
         />
+
+        {/* Flashlight / Torch Toggle */}
+        {hasTorch && isScanning && !cameraError && (
+          <button
+            type="button"
+            onClick={toggleTorch}
+            className={`absolute top-3 right-3 z-30 flex size-9 items-center justify-center rounded-full backdrop-blur-md transition-all shadow-md ${
+              torchOn
+                ? "bg-amber-400 text-amber-950 ring-2 ring-amber-300 scale-105"
+                : "bg-black/60 text-white/90 hover:text-white hover:bg-black/80"
+            }`}
+            title={torchOn ? "Turn off flashlight" : "Turn on flashlight for dark bookstore aisles"}
+            aria-label="Toggle flashlight"
+          >
+            <Zap className={`size-4 ${torchOn ? "fill-amber-950" : ""}`} />
+          </button>
+        )}
 
         {/* Viewfinder Target Overlays */}
         {isScanning && !cameraError && (

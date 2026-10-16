@@ -164,12 +164,23 @@ function ScanPageContent() {
     <div className="container mx-auto max-w-2xl px-4 py-4 sm:py-8 pb-28 sm:pb-16 space-y-6">
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-border/40 pb-4">
-        <Link href="/library">
-          <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="size-4" />
-            <span>My Shelves</span>
+        {book ? (
+          <Button
+            size="sm"
+            onClick={handleResetScanner}
+            className="gap-1.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs animate-in fade-in"
+          >
+            <RotateCcw className="size-3.5" />
+            <span>Scan Next Book</span>
           </Button>
-        </Link>
+        ) : (
+          <Link href="/library">
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="size-4" />
+              <span>My Shelves</span>
+            </Button>
+          </Link>
+        )}
         <div className="flex items-center gap-1.5">
           <Badge variant="outline" className="border-primary/40 text-primary text-[10px] uppercase font-bold gap-1">
             <Sparkles className="size-3" />
@@ -346,6 +357,20 @@ function ScanPageContent() {
               <span>Scan Another Book</span>
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Sticky Quick-Scan Floating Bar on Mobile */}
+      {book && !loadingBook && (
+        <div className="fixed bottom-20 left-0 right-0 z-40 p-3 flex justify-center pointer-events-none md:hidden animate-in slide-in-from-bottom-2 duration-200">
+          <Button
+            size="lg"
+            onClick={handleResetScanner}
+            className="pointer-events-auto shadow-2xl rounded-full px-6 py-2.5 bg-primary/95 hover:bg-primary text-primary-foreground font-bold text-xs gap-2 border border-primary-foreground/20 backdrop-blur-md"
+          >
+            <RotateCcw className="size-4" />
+            <span>Scan Next Book</span>
+          </Button>
         </div>
       )}
     </div>
