@@ -42,6 +42,7 @@ import {
 } from "@/components/librarian/shelf-concierge-modal";
 import { SeriesTracker } from "@/components/library/series-tracker";
 import { ReadingGoalWidget } from "@/components/goals/reading-goal-widget";
+import { BookDetailModal, BookDetailItem } from "@/components/library/book-detail-modal";
 import { parseSeriesInfo, groupBooksBySeries } from "@/lib/series";
 import { shareBook, shareLibrary } from "@/lib/share";
 import { getOfflineLibrary, saveOfflineLibrary, isDeviceOffline } from "@/lib/offline-storage";
@@ -268,6 +269,10 @@ export default function LibraryPage() {
 
   // Shelf Concierge State (Issue #39)
   const [isConciergeModalOpen, setIsConciergeModalOpen] = React.useState(false);
+
+  // Interactive Book Detail Modal State (Issue #72)
+  const [selectedBook, setSelectedBook] = React.useState<BookDetailItem | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
 
   // Offline Mode State (Issue #45)
   const [isOfflineMode, setIsOfflineMode] = React.useState(false);
@@ -574,6 +579,22 @@ export default function LibraryPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const handleModalShelfChange = (book: BookDetailItem, newShelf: BookDetailItem["shelf"]) => {
+    handleShelfChange(book as BookItem, newShelf);
+    setSelectedBook((prev) => (prev ? { ...prev, shelf: newShelf } : null));
+  };
+
+  const handleModalRatingChange = (book: BookDetailItem, newRating: number | null) => {
+    handleRatingChange(book as BookItem, newRating);
+    setSelectedBook((prev) => (prev ? { ...prev, rating: newRating } : null));
+  };
+
+  const handleBookDeleted = (deletedBook: BookDetailItem) => {
+    setBooks((prev) => prev.filter((b) => b.id !== deletedBook.id));
+    setToastMessage(`Removed "${deletedBook.title}" from your library.`);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   // Filter & Sort Logic
   const filteredBooks = React.useMemo(() => {
     return books
@@ -709,7 +730,7 @@ export default function LibraryPage() {
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             onClick={() => setIsConciergeModalOpen(true)}
@@ -729,46 +750,77 @@ export default function LibraryPage() {
             <span>Add Book</span>
           </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={async () => {
-              const res = await shareLibrary();
-              if (res.message && res.method !== "none") {
-                setToastMessage(res.message);
-                setTimeout(() => setToastMessage(null), 3000);
-              }
-            }}
-            className="gap-1.5 font-semibold"
-            title="Share your reading shelves"
-          >
-            <Share2 className="size-4" />
-            <span className="hidden sm:inline">Share</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsExportModalOpen(true)}
-            className="gap-1.5 font-semibold"
-          >
-            <Download className="size-4" />
-            <span>Export</span>
-          </Button>
-
-          <Link href="/insights">
-            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-800 border-purple-500/30">
-              <BarChart3 className="size-4 text-purple-500" />
-              <span>Insights</span>
+          {/* Desktop Secondary Utilities */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                const res = await shareLibrary();
+                if (res.message && res.method !== "none") {
+                  setToastMessage(res.message);
+                  setTimeout(() => setToastMessage(null), 3000);
+                }
+              }}
+              className="gap-1.5 font-semibold"
+              title="Share your reading shelves"
+            >
+              <Share2 className="size-4" />
+              <span>Share</span>
             </Button>
-          </Link>
 
-          <Link href="/chat">
-            <Button size="sm" variant="outline" className="gap-1.5 font-semibold">
-              <Sparkles className="size-4" />
-              <span>Ask Personal Librarian</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsExportModalOpen(true)}
+              className="gap-1.5 font-semibold"
+            >
+              <Download className="size-4" />
+              <span>Export</span>
             </Button>
-          </Link>
+
+            <Link href="/insights">
+              <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-800 border-purple-500/30">
+                <BarChart3 className="size-4 text-purple-500" />
+                <span>Insights</span>
+              </Button>
+            </Link>
+
+            <Link href="/chat">
+              <Button size="sm" variant="outline" className="gap-1.5 font-semibold">
+                <Sparkles className="size-4" />
+                <span>Ask Personal Librarian</span>
+              </Button>
+            </Link>
+          </div>
+
+          {/* Mobile Secondary Utilities (Compact size-8 icon buttons) */}
+          <div className="flex sm:hidden items-center gap-1.5">
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={async () => {
+                const res = await shareLibrary();
+                if (res.message && res.method !== "none") {
+                  setToastMessage(res.message);
+                  setTimeout(() => setToastMessage(null), 3000);
+                }
+              }}
+              className="size-8 rounded-lg"
+              title="Share reading shelves"
+            >
+              <Share2 className="size-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setIsExportModalOpen(true)}
+              className="size-8 rounded-lg"
+              title="Export reading history"
+            >
+              <Download className="size-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -830,8 +882,19 @@ export default function LibraryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by title or author..."
-            className="pl-9 bg-background/60 h-9 text-xs"
+            className="pl-9 pr-8 bg-background/60 h-9 text-xs"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-muted/80 transition-colors"
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Shelf Tabs Filter */}
@@ -1101,7 +1164,11 @@ export default function LibraryPage() {
             return (
               <Card
                 key={book.id}
-                className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-xs hover:border-primary/50 transition-all flex flex-col justify-between"
+                onClick={() => {
+                  setSelectedBook(book);
+                  setIsDetailModalOpen(true);
+                }}
+                className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-xs hover:border-primary/50 transition-all flex flex-col justify-between cursor-pointer active:scale-[0.99]"
               >
                 <CardContent className="p-2.5 sm:p-3 flex flex-col h-full justify-between">
                   <div>
@@ -1251,9 +1318,28 @@ export default function LibraryPage() {
         onStartReading={handleStartReadingFromConcierge}
       />
 
+      {/* Interactive Book Details Modal (Issue #72) */}
+      <BookDetailModal
+        open={isDetailModalOpen}
+        onOpenChange={setIsDetailModalOpen}
+        book={selectedBook}
+        onShelfChange={handleModalShelfChange}
+        onRatingChange={handleModalRatingChange}
+        onBookDeleted={handleBookDeleted}
+        onRecommend={(b) => {
+          setRecommendBook({
+            id: b.book_id,
+            title: b.title,
+            author: b.author,
+            cover_url: b.cover_url,
+          });
+          setIsRecommendModalOpen(true);
+        }}
+      />
+
       {/* Toast Alert Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-card/95 backdrop-blur-md px-4 py-3 text-sm text-foreground shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-20 sm:bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-card/95 backdrop-blur-md px-4 py-3 text-sm text-foreground shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
           <Check className="size-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>

@@ -647,3 +647,74 @@ export async function PATCH(request: Request) {
     );
   }
 }
+
+/**
+ * DELETE /api/library
+ * Removes a user_book entry from the user's personal shelf collection.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabase = createAdminClient(supabaseUrl, supabaseKey);
+
+    // 1. Authenticate user
+    let userId: string | undefined;
+    try {
+      const serverClient = await createServerClient();
+      const {
+        data: { user },
+      } = await serverClient.auth.getUser();
+      if (user) {
+        userId = user.id;
+      }
+    } catch {
+      // Unauthenticated session
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to remove books from your library." },
+        { status: 401 }
+      );
+    }
+
+    // 2. Parse body or query parameters
+    const body = await request.json().catch(() => ({}));
+    const { searchParams } = new URL(request.url);
+    const id = body.id || searchParams.get("id");
+    const book_id = body.book_id || searchParams.get("book_id");
+
+    if (!id && !book_id) {
+      return NextResponse.json(
+        { error: "Either id (user_book record id) or book_id is required" },
+        { status: 400 }
+      );
+    }
+
+    let query = supabase.from("user_books").delete().eq("user_id", userId);
+    if (id) {
+      query = query.eq("id", id);
+    } else if (book_id) {
+      query = query.eq("book_id", book_id);
+    }
+
+    const { error: deleteError } = await query;
+    if (deleteError) {
+      console.error("user_books delete error:", deleteError);
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Book successfully removed from your library.",
+    });
+  } catch (error: any) {
+    console.error("Library Delete Error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to remove book" },
+      { status: 500 }
+    );
+  }
+}
+
