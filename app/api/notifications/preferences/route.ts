@@ -52,9 +52,15 @@ export async function GET(req: Request) {
       ...(profile?.notification_preferences || {}),
     };
 
+    const vapidPublicKey =
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+      process.env.VAPID_PUBLIC_KEY ||
+      "BBAvNo_oKSeQidSyeOpP4BDcG93mE5pSveku6e0UG0dFNGREFvtQJG0XfDP41yrRqQUCBv_XHC5xP7-A1qBoaGs";
+
     return NextResponse.json({
       success: true,
       preferences,
+      vapidPublicKey,
     });
   } catch (error: any) {
     console.error("GET /api/notifications/preferences error:", error);

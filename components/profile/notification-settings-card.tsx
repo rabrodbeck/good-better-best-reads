@@ -44,6 +44,7 @@ export function NotificationSettingsCard() {
     DEFAULT_NOTIFICATION_PREFERENCES
   );
   const [loadingPrefs, setLoadingPrefs] = React.useState(true);
+  const [serverVapidKey, setServerVapidKey] = React.useState<string | null>(null);
 
   // 1. Check browser capabilities and active subscription
   React.useEffect(() => {
@@ -68,13 +69,16 @@ export function NotificationSettingsCard() {
     });
   }, []);
 
-  // 2. Fetch user preferences from API
+  // 2. Fetch user preferences and public VAPID key from API
   React.useEffect(() => {
     fetch("/api/notifications/preferences")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.preferences) {
           setPreferences(data.preferences);
+        }
+        if (data?.vapidPublicKey) {
+          setServerVapidKey(data.vapidPublicKey);
         }
       })
       .catch(() => {})
@@ -98,12 +102,32 @@ export function NotificationSettingsCard() {
         return;
       }
 
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      // Ensure service worker is registered before requesting push manager on mobile
+      if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+      const reg = await navigator.serviceWorker.ready;
+
+      // Resilient multi-tier VAPID key resolution
+      let vapidKey = serverVapidKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidKey) {
-        throw new Error("Missing public VAPID key on client");
+        try {
+          const prefRes = await fetch("/api/notifications/preferences");
+          if (prefRes.ok) {
+            const prefData = await prefRes.json();
+            if (typeof prefData.vapidPublicKey === "string") {
+              vapidKey = prefData.vapidPublicKey;
+              setServerVapidKey(prefData.vapidPublicKey);
+            }
+          }
+        } catch {}
       }
 
-      const reg = await navigator.serviceWorker.ready;
+      // Default production VAPID fallback if environment inline was missing
+      if (!vapidKey) {
+        vapidKey = "BBAvNo_oKSeQidSyeOpP4BDcG93mE5pSveku6e0UG0dFNGREFvtQJG0XfDP41yrRqQUCBv_XHC5xP7-A1qBoaGs";
+      }
+
       let sub = await reg.pushManager.getSubscription();
 
       if (!sub) {

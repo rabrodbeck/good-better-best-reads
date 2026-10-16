@@ -43,6 +43,23 @@ export function setCachedVerdict(key: string, verdict: LibrarianVerdictOutput): 
 }
 
 /**
+ * In-memory cache for user taste profile & read titles (15 min TTL)
+ * Prevents redundant Supabase queries during active bookstore scanning sessions
+ */
+interface UserTasteCacheEntry {
+  profile: any;
+  readTitles: Set<string>;
+  expiresAt: number;
+}
+
+const USER_TASTE_CACHE = new Map<string, UserTasteCacheEntry>();
+const USER_TASTE_TTL_MS = 1000 * 60 * 15;
+
+export function clearUserTasteCache(): void {
+  USER_TASTE_CACHE.clear();
+}
+
+/**
  * Stage 2: Core Intelligence Engine for Librarian Taste Verdict (Issue #52)
  */
 export async function generateLibrarianVerdict(
@@ -56,45 +73,59 @@ export async function generateLibrarianVerdict(
     return cached;
   }
 
-  // 1. Fetch user Reading DNA & existing read library concurrently
-  const [tasteRes, userBooksRes] = await Promise.all([
-    supabase
-      .from("taste_profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabase
-      .from("user_books")
-      .select(`
-        shelf,
-        books (
-          title,
-          author
-        )
-      `)
-      .eq("user_id", userId)
-      .eq("shelf", "read")
-      .limit(200),
-  ]);
+  // 1. Fetch user Reading DNA & existing read library (using 15min in-memory cache)
+  let profile: any;
+  let readTitles: Set<string>;
 
-  const profile = tasteRes.data || {
-    archetype_name: "The Inquisitive Explorer",
-    preferred_pacing: "Propulsive & Engaging",
-    emotional_tone: "Dynamic & Immersive",
-    top_tropes: ["Deep Worldbuilding", "Compelling Mysteries"],
-    dealbreakers: ["Slow Exposition", "Predictable Endings"],
-  };
+  const cachedUser = USER_TASTE_CACHE.get(userId);
+  if (cachedUser && Date.now() < cachedUser.expiresAt) {
+    profile = cachedUser.profile;
+    readTitles = cachedUser.readTitles;
+  } else {
+    const [tasteRes, userBooksRes] = await Promise.all([
+      supabase
+        .from("taste_profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("user_books")
+        .select(`
+          shelf,
+          books (
+            title,
+            author
+          )
+        `)
+        .eq("user_id", userId)
+        .eq("shelf", "read")
+        .limit(200),
+    ]);
 
-  // Build a set of normalized titles already read by user
-  const readTitles = new Set<string>();
-  if (userBooksRes.data) {
-    for (const ub of userBooksRes.data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const b = Array.isArray(ub.books) ? ub.books[0] : (ub.books as any);
-      if (b?.title) {
-        readTitles.add(b.title.toLowerCase().trim());
+    profile = tasteRes.data || {
+      archetype_name: "The Inquisitive Explorer",
+      preferred_pacing: "Propulsive & Engaging",
+      emotional_tone: "Dynamic & Immersive",
+      top_tropes: ["Deep Worldbuilding", "Compelling Mysteries"],
+      dealbreakers: ["Slow Exposition", "Predictable Endings"],
+    };
+
+    readTitles = new Set<string>();
+    if (userBooksRes.data) {
+      for (const ub of userBooksRes.data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const b = Array.isArray(ub.books) ? ub.books[0] : (ub.books as any);
+        if (b?.title) {
+          readTitles.add(b.title.toLowerCase().trim());
+        }
       }
     }
+
+    USER_TASTE_CACHE.set(userId, {
+      profile,
+      readTitles,
+      expiresAt: Date.now() + USER_TASTE_TTL_MS,
+    });
   }
 
   // Pre-parse series info if title contains parenthetical series tags
@@ -150,6 +181,7 @@ ${localSeries ? `- **Detected Series Metadata**: Series: "${localSeries.seriesNa
         output: Output.object({ schema: LibrarianVerdictOutputSchema }),
         prompt,
         temperature: 0.2,
+        maxOutputTokens: 250,
       });
 
       // Cross-check if user already read Book 1 or prior volumes

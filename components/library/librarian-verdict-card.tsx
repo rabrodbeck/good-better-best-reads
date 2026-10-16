@@ -27,12 +27,14 @@ export interface LibrarianVerdictCardProps {
   };
   onFindBook1?: (book1Title: string) => void;
   className?: string;
+  autoFetch?: boolean;
 }
 
 export function LibrarianVerdictCard({
   book,
   onFindBook1,
   className = "",
+  autoFetch = false,
 }: LibrarianVerdictCardProps) {
   const [verdict, setVerdict] = React.useState<LibrarianVerdictOutput | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -45,8 +47,7 @@ export function LibrarianVerdictCard({
     setIsLoading(false);
   }, [book.title, book.author, book.isbn]);
 
-  const handleFetchVerdict = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent selecting the book card when clicking the verdict trigger
+  const fetchVerdict = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -84,9 +85,21 @@ export function LibrarianVerdictCard({
     } finally {
       setIsLoading(false);
     }
+  }, [book.title, book.author, book.isbn, book.published_year, book.snippet, book.genres]);
+
+  // Automatic evaluation for seamless in-store scanning (zero extra taps)
+  React.useEffect(() => {
+    if (autoFetch && book.title && book.author && !verdict && !isLoading && !error) {
+      fetchVerdict();
+    }
+  }, [autoFetch, book.title, book.author, verdict, isLoading, error, fetchVerdict]);
+
+  const handleFetchVerdict = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the book card when clicking the verdict trigger
+    fetchVerdict();
   };
 
-  // 1. Initial on-demand trigger state
+  // 1. Initial on-demand trigger state (shown only if autoFetch is false and not evaluated)
   if (!verdict && !isLoading && !error) {
     return (
       <div className={`mt-3 ${className}`}>

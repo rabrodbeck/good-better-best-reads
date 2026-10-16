@@ -142,6 +142,7 @@ describe("Phase 6 / Step 3: Granular User Notification Controls & Device Subscri
       expect(data.success).toBe(true);
       expect(data.preferences.friend_recommendations).toBe(true);
       expect(data.preferences.goal_milestones).toBe(true);
+      expect(data.vapidPublicKey).toBeDefined();
     });
 
     it("updates specific preferences on PATCH", async () => {

@@ -330,6 +330,7 @@ function ScanPageContent() {
                 genres: book.genres,
                 snippet: book.description,
               }}
+              autoFetch={true}
             />
           </div>
 

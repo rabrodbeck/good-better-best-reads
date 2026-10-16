@@ -10,11 +10,13 @@ import {
   getCachedVerdict,
   setCachedVerdict,
   clearVerdictCache,
+  clearUserTasteCache,
 } from "@/lib/librarian-verdict";
 
 describe("Stage 1 & 2: Librarian Taste Verdict Engine (Issues #51 & #52)", () => {
   beforeEach(() => {
     clearVerdictCache();
+    clearUserTasteCache();
   });
 
   describe("Schema Validation & Contract Integrity", () => {
