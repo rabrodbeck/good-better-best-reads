@@ -13,15 +13,15 @@ describe("BottomNav - Mobile Navigation Component", () => {
 
     expect(html).toContain("Shelves");
     expect(html).toContain("Friends");
+    expect(html).toContain("Scan");
     expect(html).toContain("Librarian");
     expect(html).toContain("DNA");
-    expect(html).toContain("Home");
 
     expect(html).toContain('href="/library"');
     expect(html).toContain('href="/friends"');
+    expect(html).toContain('href="/scan"');
     expect(html).toContain('href="/chat"');
     expect(html).toContain('href="/dna"');
-    expect(html).toContain('href="/"');
   });
 
   it("applies fixed positioning and safe area inset support", () => {

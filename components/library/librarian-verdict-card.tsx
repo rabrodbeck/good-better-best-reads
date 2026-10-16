@@ -66,6 +66,9 @@ export function LibrarianVerdictCard({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || data.error === "Unauthorized") {
+          throw new Error("Sign in to consult your Reading DNA for personalized in-store match scores.");
+        }
         throw new Error(data.error || "Failed to analyze book taste match");
       }
 

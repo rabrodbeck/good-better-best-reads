@@ -10,25 +10,39 @@ export function PwaRegister() {
   React.useEffect(() => {
     // 1. Register Service Worker in browser environment
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => {
-          reg.update().catch(() => {});
-        })
-        .catch((err) => {
-          console.warn("Service worker registration skipped:", err);
+      if (process.env.NODE_ENV !== "production") {
+        // Automatically unregister service worker and clear cache in development to prevent stale Turbopack chunk collisions
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const reg of registrations) {
+            reg.unregister();
+          }
         });
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            keys.forEach((k) => caches.delete(k));
+          });
+        }
+      } else {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            reg.update().catch(() => {});
+          })
+          .catch((err) => {
+            console.warn("Service worker registration skipped:", err);
+          });
 
-      // Ensure current page HTML is stored in cache for offline refresh (production only to prevent stale dev caching)
-      if ("caches" in window && navigator.onLine && process.env.NODE_ENV === "production") {
-        const path = window.location.pathname;
-        window.caches.open("gbbr-pwa-v8").then((cache) => {
-          fetch(path)
-            .then((res) => {
-              if (res.ok) cache.put(path, res);
-            })
-            .catch(() => {});
-        });
+        // Ensure current page HTML is stored in cache for offline refresh in production
+        if ("caches" in window && navigator.onLine) {
+          const path = window.location.pathname;
+          window.caches.open("gbbr-pwa-v9").then((cache) => {
+            fetch(path)
+              .then((res) => {
+                if (res.ok) cache.put(path, res);
+              })
+              .catch(() => {});
+          });
+        }
       }
     }
 

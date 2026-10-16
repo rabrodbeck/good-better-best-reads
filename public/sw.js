@@ -1,16 +1,16 @@
 /**
  * Service Worker for GoodBetterBestReads PWA (Issue #45)
- * Version: gbbr-pwa-v8
+ * Version: gbbr-pwa-v9
  * 
  * Comprehensive Offline Support:
  * 1. Network-first with cache fallback for /api/library, /api/insights, /api/goals.
  * 2. Stale-while-revalidate for covers, icons, and static assets.
  * 3. Self-contained Offline Library Shell for HTML navigations when offline:
  *    Renders cached shelves, search, and filters directly from localStorage with ZERO external chunk dependencies!
- * 4. Automatic purge of older cache versions (v1 through v7).
+ * 4. Automatic purge of older cache versions (v1 through v8).
  */
 
-const CACHE_NAME = "gbbr-pwa-v8";
+const CACHE_NAME = "gbbr-pwa-v9";
 
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
@@ -65,6 +65,17 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".hot-update.js")
   ) {
     return;
+  }
+
+  // In development (localhost), do not cache /_next/ chunks to prevent Turbopack module factory collisions
+  if (
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname.startsWith("192.168.")
+  ) {
+    if (url.pathname.startsWith("/_next/")) {
+      return;
+    }
   }
 
   // 1. API Caching Strategy: Network-First with Cache Fallback

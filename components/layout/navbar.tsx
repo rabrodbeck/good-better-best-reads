@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BookOpen, BookMarked, Sparkles, Dna, UploadCloud, Users, Plus, Check, BarChart3 } from "lucide-react";
+import { BookOpen, BookMarked, Sparkles, Dna, UploadCloud, Users, Plus, Check, BarChart3, Camera } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { AuthButton } from "./auth-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -98,6 +98,13 @@ export function Navbar() {
                 {pendingCount}
               </span>
             )}
+          </Link>
+          <Link
+            href="/scan"
+            className="flex items-center gap-1.5 transition-colors hover:text-foreground"
+          >
+            <Camera className="size-4 text-rose-500" />
+            <span>Scan</span>
           </Link>
         </nav>
 

@@ -3,7 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookMarked, Users, Sparkles, Dna } from "lucide-react";
+import { BookMarked, Users, Sparkles, Dna, Camera, Home } from "lucide-react";
+
+// Explicit reference prevents Turbopack tree-shaking house.mjs if client cache requests it
+const _staleCacheModuleShim = Home;
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -35,6 +38,13 @@ export function BottomNav() {
       badge: pendingCount,
     },
     {
+      href: "/scan",
+      label: "Scan",
+      icon: Camera,
+      isActive: pathname.startsWith("/scan"),
+      isPrimaryAction: true,
+    },
+    {
       href: "/chat",
       label: "Librarian",
       icon: Sparkles,
@@ -45,12 +55,6 @@ export function BottomNav() {
       label: "DNA",
       icon: Dna,
       isActive: pathname.startsWith("/dna"),
-    },
-    {
-      href: "/",
-      label: "Home",
-      icon: Home,
-      isActive: pathname === "/",
     },
   ];
 
@@ -63,6 +67,35 @@ export function BottomNav() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = item.isActive;
+          const isPrimary = Boolean(item.isPrimaryAction);
+
+          if (isPrimary) {
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center justify-center py-1 transition-colors relative group select-none -mt-4"
+                aria-label="Scan physical book barcode"
+              >
+                <div
+                  className={`flex size-12 items-center justify-center rounded-full shadow-lg ring-4 ring-background transition-transform duration-150 active:scale-95 group-hover:scale-105 ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-primary/25"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  }`}
+                >
+                  <Camera className="size-6 stroke-[2.2]" />
+                </div>
+                <span
+                  className={`text-[10px] tracking-tight mt-1 font-bold ${
+                    active ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  Scan
+                </span>
+              </Link>
+            );
+          }
 
           return (
             <Link
