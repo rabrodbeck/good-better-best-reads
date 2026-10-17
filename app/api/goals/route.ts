@@ -76,11 +76,11 @@ export async function GET(req: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allRead = (booksRes.data || []) as any[];
 
-    // Filter books read within the specified calendar year
+    // Filter books read within the specified calendar year.
+    // NOTE: Lifetime/past reads have date_read === null and do not pollute the annual reading challenge.
     const booksThisYear = allRead.filter((ub) => {
-      const dateStr = ub.date_read || ub.created_at;
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
+      if (!ub.date_read) return false;
+      const d = new Date(ub.date_read);
       return !isNaN(d.getTime()) && d.getFullYear() === year;
     });
 
@@ -159,9 +159,8 @@ export async function PATCH(req: Request) {
       .eq("shelf", "read");
 
     const booksThisYear = (booksData || []).filter((ub) => {
-      const dateStr = ub.date_read || ub.created_at;
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
+      if (!ub.date_read) return false;
+      const d = new Date(ub.date_read);
       return !isNaN(d.getTime()) && d.getFullYear() === year;
     });
 

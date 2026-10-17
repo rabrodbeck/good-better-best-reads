@@ -1237,6 +1237,12 @@ export default function LibraryPage() {
                     </span>
                   ) : null}
 
+                  {book.shelf === "read" && !book.date_read && (
+                    <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded-xs border border-amber-500/20">
+                      Lifetime
+                    </span>
+                  )}
+
                   <div className="flex items-center gap-1">
                     <button
                       type="button"

@@ -184,6 +184,19 @@ export function BookDetailModal({
                     ISBN: {book.isbn13 || book.isbn}
                   </Badge>
                 )}
+                {book.shelf === "read" && (
+                  book.date_read ? (
+                    <Badge variant="outline" className="text-[10px] gap-1 font-mono py-0 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                      <Check className="size-2.5" />
+                      <span>Read {new Date(book.date_read).getFullYear()}</span>
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] gap-1 font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 py-0">
+                      <Sparkles className="size-2.5" />
+                      <span>Lifetime Read</span>
+                    </Badge>
+                  )
+                )}
               </div>
             </div>
           </div>

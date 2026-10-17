@@ -425,10 +425,12 @@ export async function POST(request: Request) {
         : null;
 
     let parsedDateRead: string | null = null;
-    if (targetShelf === "read") {
-      parsedDateRead = date_read ? new Date(date_read).toISOString() : new Date().toISOString();
+    if (date_read === null || body.is_lifetime_read) {
+      parsedDateRead = null;
     } else if (date_read) {
       parsedDateRead = new Date(date_read).toISOString();
+    } else if (targetShelf === "read") {
+      parsedDateRead = new Date().toISOString();
     }
 
     const { data: userBook, error: ubError } = await supabase

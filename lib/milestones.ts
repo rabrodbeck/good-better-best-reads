@@ -51,9 +51,8 @@ export async function checkAndDispatchGoalMilestones(
   }
 
   const booksThisYear = (readBooksData || []).filter((ub) => {
-    const dateStr = ub.date_read || ub.created_at;
-    if (!dateStr) return false;
-    const d = new Date(dateStr);
+    if (!ub.date_read) return false;
+    const d = new Date(ub.date_read);
     return (
       !isNaN(d.getTime()) &&
       (d.getUTCFullYear() === targetYear || d.getFullYear() === targetYear)

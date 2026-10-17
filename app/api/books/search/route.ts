@@ -242,8 +242,13 @@ export async function GET(request: NextRequest) {
 
     // 2. Query search
     if (!query || query.length < 2) {
-      return NextResponse.json({ results: [] });
+      return NextResponse.json({ results: [], hasMore: false, page: 1, total: 0 });
     }
+
+    const pageParam = searchParams.get("page");
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.min(50, Math.max(5, parseInt(limitParam, 10))) : 20;
 
     // FAST-PATH: If query is an ISBN (10 or 13 digits), execute direct parallel lookup
     const cleanIsbn = query.replace(/[-\s]/g, "").trim();
@@ -254,7 +259,7 @@ export async function GET(request: NextRequest) {
       const cached = isbnCache.get(cleanIsbn);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
         return NextResponse.json(
-          { results: cached.results },
+          { results: cached.results, hasMore: false, page: 1, total: cached.results.length },
           { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400" } }
         );
       }
@@ -273,19 +278,20 @@ export async function GET(request: NextRequest) {
         }
         isbnCache.set(cleanIsbn, { timestamp: Date.now(), results });
         return NextResponse.json(
-          { results },
+          { results, hasMore: false, page: 1, total: results.length },
           { headers: { "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400" } }
         );
       }
     }
 
     let olResults: SearchResultItem[] = [];
+    let totalFound = 0;
 
     // Attempt primary search via Open Library
     try {
       const searchUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(
         query
-      )}&limit=12&fields=key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,subject,first_sentence,language,editions`;
+      )}&page=${page}&limit=${limit}&fields=key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,subject,first_sentence,language,editions`;
 
       const res = await fetch(searchUrl, {
         headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
@@ -294,6 +300,9 @@ export async function GET(request: NextRequest) {
 
       if (res.ok) {
         const data = await res.json();
+        if (typeof data.numFound === "number") {
+          totalFound = data.numFound;
+        }
         const docs = Array.isArray(data.docs) ? data.docs : [];
 
         for (const doc of docs) {
@@ -379,7 +388,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ results: olResults });
+    const hasMore = totalFound > page * limit;
+
+    return NextResponse.json({
+      results: olResults,
+      hasMore,
+      page,
+      total: totalFound || olResults.length,
+    });
   } catch (error: any) {
     console.error("Multi-Provider Book Search Error:", error);
     return NextResponse.json(

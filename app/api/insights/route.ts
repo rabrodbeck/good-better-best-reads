@@ -89,7 +89,7 @@ export async function GET(req: Request) {
 
     const formattedBooks: InsightBookItem[] = rawList.map((ub) => {
       const b = Array.isArray(ub.books) ? ub.books[0] : ub.books;
-      const dateStr = ub.date_read || ub.created_at;
+      const dateStr = ub.date_read || null;
 
       if (dateStr) {
         const d = new Date(dateStr);

@@ -19,6 +19,7 @@ import {
   Plus,
   Camera,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -246,6 +247,9 @@ export function AddBookModal({
       setUserReview("");
       setSearchError(null);
       setSubmitError(null);
+      setSearchPage(1);
+      setHasMore(false);
+      setIsLoadingMore(false);
     }
   }, [open]);
 
@@ -257,19 +261,28 @@ export function AddBookModal({
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Pagination & Quick Rating State
+  const [searchPage, setSearchPage] = React.useState(1);
+  const [hasMore, setHasMore] = React.useState(false);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [quickRatedMap, setQuickRatedMap] = React.useState<Record<string, number>>({});
+
   // Fetch search results
   React.useEffect(() => {
     if (debouncedQuery.length < 2) {
       setResults([]);
       setIsSearching(false);
+      setHasMore(false);
+      setSearchPage(1);
       return;
     }
 
     let isCancelled = false;
     setIsSearching(true);
     setSearchError(null);
+    setSearchPage(1);
 
-    fetch(`/api/books/search?q=${encodeURIComponent(debouncedQuery)}`)
+    fetch(`/api/books/search?q=${encodeURIComponent(debouncedQuery)}&page=1&limit=20`)
       .then((res) => {
         if (!res.ok) throw new Error("Search service encountered an error");
         return res.json();
@@ -277,6 +290,7 @@ export function AddBookModal({
       .then((data) => {
         if (!isCancelled) {
           setResults(data.results || []);
+          setHasMore(Boolean(data.hasMore));
         }
       })
       .catch((err) => {
@@ -293,6 +307,115 @@ export function AddBookModal({
       isCancelled = true;
     };
   }, [debouncedQuery]);
+
+  // Load more books for deep author bibliographies
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    const nextPage = searchPage + 1;
+    try {
+      const res = await fetch(
+        `/api/books/search?q=${encodeURIComponent(debouncedQuery)}&page=${nextPage}&limit=20`
+      );
+      if (!res.ok) throw new Error("Failed to load more results");
+      const data = await res.json();
+      const newItems = (data.results || []) as SearchResultItem[];
+      setResults((prev) => {
+        const existingKeys = new Set(prev.map((b) => b.key || `${b.title}-${b.author}`));
+        const filteredNew = newItems.filter(
+          (b) => !existingKeys.has(b.key || `${b.title}-${b.author}`)
+        );
+        return [...prev, ...filteredNew];
+      });
+      setSearchPage(nextPage);
+      setHasMore(Boolean(data.hasMore));
+    } catch (err) {
+      console.error("Failed to load more books:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // 1-Tap Inline Past Read Quick Rating
+  const handleQuickRate = async (
+    e: React.MouseEvent,
+    book: SearchResultItem,
+    selectedRating: number
+  ) => {
+    e.stopPropagation();
+
+    const bookKey = book.key || `${book.title}-${book.author}`;
+    setQuickRatedMap((prev) => ({ ...prev, [bookKey]: selectedRating }));
+
+    // Optimistically update library books cache so the card immediately reflects On Shelf: Read
+    const newShelfInfo: ExistingBookShelfInfo = {
+      id: book.key || "",
+      book_id: book.key || "",
+      title: book.title,
+      author: book.author,
+      shelf: "read",
+      rating: selectedRating,
+      date_read: null, // Lifetime Read
+    };
+
+    setLibraryBooks((prev) => {
+      const idx = prev.findIndex(
+        (b) =>
+          (book.isbn13 && b.isbn13 === book.isbn13) ||
+          (book.isbn && b.isbn === book.isbn) ||
+          b.title.toLowerCase().trim() === book.title.toLowerCase().trim()
+      );
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], shelf: "read", rating: selectedRating, date_read: null };
+        return copy;
+      }
+      return [newShelfInfo, ...prev];
+    });
+
+    onBookAdded?.({
+      id: book.key || "",
+      book_id: book.key || "",
+      title: book.title,
+      author: book.author,
+      isbn: book.isbn || null,
+      isbn13: book.isbn13 || null,
+      cover_url: book.cover_url || null,
+      shelf: "read",
+      rating: selectedRating,
+      date_read: null,
+      user_review: null,
+      published_year: book.published_year || null,
+      page_count: book.page_count || null,
+      user_shelves: ["read"],
+    });
+
+    try {
+      const res = await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: book.title,
+          author: book.author,
+          isbn: book.isbn,
+          isbn13: book.isbn13,
+          cover_url: book.cover_url,
+          published_year: book.published_year,
+          page_count: book.page_count,
+          shelf: "read",
+          rating: selectedRating,
+          date_read: null,
+          is_lifetime_read: true,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save lifetime rating");
+      }
+    } catch (err) {
+      console.error("Quick rate error:", err);
+    }
+  };
 
   const handleSelectBook = (book: SearchResultItem) => {
     setSelectedBook(book);
@@ -576,9 +699,92 @@ export function AddBookModal({
                             }}
                           />
                         </div>
+
+                        {/* 1-Tap Past Read Rapid Rating Control */}
+                        <div
+                          className="mt-2.5 pt-2 border-t border-border/40 pl-0 sm:pl-[70px] flex flex-wrap items-center justify-between gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                            <span>Already read this? Rate as Lifetime Read:</span>
+                          </span>
+
+                          <div className="flex items-center gap-1 bg-muted/40 px-2.5 py-1 rounded-lg border border-border/40">
+                            {[1, 2, 3, 4, 5].map((starVal) => {
+                              const bookKey = book.key || `${book.title}-${book.author}`;
+                              const currentRating =
+                                quickRatedMap[bookKey] !== undefined
+                                  ? quickRatedMap[bookKey]
+                                  : existing?.shelf === "read"
+                                  ? existing.rating
+                                  : null;
+                              const isFilled =
+                                currentRating !== null &&
+                                currentRating !== undefined &&
+                                currentRating >= starVal;
+
+                              return (
+                                <button
+                                  key={starVal}
+                                  type="button"
+                                  onClick={(e) => handleQuickRate(e, book, starVal)}
+                                  title={`Rate ${starVal} star${starVal > 1 ? "s" : ""} as Lifetime Read`}
+                                  className="p-1 hover:scale-125 transition-transform"
+                                >
+                                  <Star
+                                    className={`size-4 transition-colors ${
+                                      isFilled
+                                        ? "fill-amber-500 text-amber-500"
+                                        : "text-muted-foreground/30 hover:text-amber-500/70"
+                                    }`}
+                                  />
+                                </button>
+                              );
+                            })}
+                            {(() => {
+                              const bookKey = book.key || `${book.title}-${book.author}`;
+                              const activeRating =
+                                quickRatedMap[bookKey] !== undefined
+                                  ? quickRatedMap[bookKey]
+                                  : existing?.shelf === "read"
+                                  ? existing.rating
+                                  : null;
+                              return activeRating ? (
+                                <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 ml-1">
+                                  {activeRating}★
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
+
+                  {/* Load More Button for Deep Author Catalogs */}
+                  {hasMore && (
+                    <div className="pt-2 pb-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore}
+                        className="w-full text-xs font-semibold h-9 gap-1.5 border-dashed border-border/80 hover:border-primary/50"
+                      >
+                        {isLoadingMore ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <ChevronDown className="size-3.5" />
+                        )}
+                        <span>
+                          {isLoadingMore
+                            ? "Loading more books..."
+                            : `Load more books by ${debouncedQuery}`}
+                        </span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Default empty state with suggestions */
