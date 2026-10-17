@@ -127,7 +127,7 @@ function LibraryBookCover({
       {/* Top Header */}
       <div className="w-full flex items-center justify-center pt-1.5">
         <span className="text-[9px] font-mono tracking-widest text-muted-foreground/60 uppercase">
-          GoodBetterBest
+          TBRScout
         </span>
       </div>
 

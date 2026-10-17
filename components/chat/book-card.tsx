@@ -99,7 +99,7 @@ export function BookCard({
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-r from-border/80 via-primary/30 to-transparent pointer-events-none" />
               <div className="w-full pt-1">
                 <span className="text-[8px] font-mono tracking-widest text-muted-foreground/60 uppercase">
-                  GoodBetterBest
+                  TBRScout
                 </span>
               </div>
               <div className="my-auto px-1">
