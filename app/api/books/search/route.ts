@@ -144,7 +144,7 @@ export async function fetchOpenLibraryIsbn(cleanIsbn: string): Promise<SearchRes
   try {
     const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+      headers: { "User-Agent": "TBRScout/1.0 (contact@tbrscout.vercel.app)" },
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return null;
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
       const cleanWork = workKey.startsWith("/works/") ? workKey : `/works/${workKey}`;
       try {
         const workRes = await fetch(`https://openlibrary.org${cleanWork}.json`, {
-          headers: { "User-Agent": "GoodBetterBestReads/1.0" },
+          headers: { "User-Agent": "TBRScout/1.0" },
           signal: AbortSignal.timeout(6000),
         });
         if (workRes.ok) {
@@ -294,7 +294,7 @@ export async function GET(request: NextRequest) {
       )}&page=${page}&limit=${limit}&fields=key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,subject,first_sentence,language,editions`;
 
       const res = await fetch(searchUrl, {
-        headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+        headers: { "User-Agent": "TBRScout/1.0 (contact@tbrscout.vercel.app)" },
         signal: AbortSignal.timeout(8000),
       });
 

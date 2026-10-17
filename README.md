@@ -1,15 +1,15 @@
-# GoodBetterBestReads
+# TBRScout
 
-An AI-powered reading taste intelligence system and conversational librarian that transforms static reading history into high-dimensional vector embeddings, dynamic taste archetypes, and personalized book recommendations.
+An in-store reading concierge and taste intelligence system that transforms static reading history into high-dimensional vector embeddings, dynamic taste archetypes, barcode scouting verdicts, and personalized book recommendations.
 
 ---
 
 ## Overview
 
-GoodBetterBestReads moves beyond five-star whole-number ratings and generic bestseller lists. By combining client-side CSV parsing, Google Gemini 2.5 Flash, and PostgreSQL `pgvector`, the application extracts deep narrative preferences—such as pacing tempo, emotional tone, loved tropes, and critical dealbreakers—and grounds conversational recommendations in the reader's actual history.
+TBRScout moves beyond five-star whole-number ratings and generic bestseller lists. By combining real-time camera barcode scanning, client-side CSV parsing, Google Gemini 2.5 Flash, and PostgreSQL `pgvector`, the application extracts deep narrative preferences—such as pacing tempo, emotional tone, loved tropes, and critical dealbreakers—and gives readers instant, honest verdicts right in the bookstore aisle.
 
 ### Live Production Deployment
-- **URL**: [goodbetterbestreads.vercel.app](https://goodbetterbestreads.vercel.app)
+- **URL**: [tbrscout.vercel.app](https://tbrscout.vercel.app)
 - **Hosting**: Vercel (Serverless and Edge Runtimes)
 - **Database**: Supabase PostgreSQL with `pgvector` extension
 

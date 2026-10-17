@@ -18,7 +18,7 @@ export async function shareContent(data: {
   text: string;
   url: string;
 }): Promise<ShareResult> {
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://goodbetterbestreads.vercel.app";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://tbrscout.vercel.app";
   const shareUrl = data.url.startsWith("http") ? data.url : `${origin}${data.url.startsWith("/") ? "" : "/"}${data.url}`;
 
   // 1. Try Native Web Share API (iOS, Android, macOS Safari, Windows Edge)
@@ -100,8 +100,8 @@ export async function shareBook(book: {
 }): Promise<ShareResult> {
   const identifier = book.book_id || book.id || encodeURIComponent(book.title);
   return shareContent({
-    title: `${book.title} by ${book.author} | GoodBetterBestReads`,
-    text: `Check out "${book.title}" by ${book.author} on GoodBetterBestReads!`,
+    title: `${book.title} by ${book.author} | TBRScout`,
+    text: `Check out "${book.title}" by ${book.author} on TBRScout!`,
     url: `/library?book=${identifier}`,
   });
 }
@@ -114,7 +114,7 @@ export async function shareReadingDna(taste: {
   const url = taste.user_id ? `/dna?user=${encodeURIComponent(taste.user_id)}` : "/dna";
   return shareContent({
     title: `${taste.archetype_name} — Verified Reading DNA`,
-    text: `Discover my literary taste archetype (${taste.archetype_name}) on GoodBetterBestReads!`,
+    text: `Discover my literary taste archetype (${taste.archetype_name}) on TBRScout!`,
     url,
   });
 }
@@ -126,8 +126,8 @@ export async function shareLibrary(options?: {
   const url = options?.userId ? `/friends/${options.userId}/library` : "/library";
   const name = options?.displayName || "My";
   return shareContent({
-    title: `${name} Reading Shelves | GoodBetterBestReads`,
-    text: `Explore ${name === "My" ? "my" : `${name}'s`} cataloged book shelves and reading progress on GoodBetterBestReads!`,
+    title: `${name} Reading Shelves | TBRScout`,
+    text: `Explore ${name === "My" ? "my" : `${name}'s`} cataloged book shelves and reading progress on TBRScout!`,
     url,
   });
 }

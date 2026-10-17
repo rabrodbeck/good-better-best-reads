@@ -312,7 +312,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         type: "invite_created",
-        message: `${cleanEmail} isn't on GoodBetterBestReads yet! Share your invite link with them.`,
+        message: `${cleanEmail} isn't on TBRScout yet! Share your invite link with them.`,
         inviteCode: existingInvite.invite_code,
         inviteUrl: `${origin}/join/${existingInvite.invite_code}`,
         email: cleanEmail,
@@ -339,7 +339,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       type: "invite_created",
-      message: `${cleanEmail} isn't on GoodBetterBestReads yet! Share your invite link with them to connect once they join.`,
+      message: `${cleanEmail} isn't on TBRScout yet! Share your invite link with them to connect once they join.`,
       inviteCode,
       inviteUrl: `${origin}/join/${inviteCode}`,
       email: cleanEmail,

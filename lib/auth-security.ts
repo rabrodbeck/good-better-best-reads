@@ -47,6 +47,11 @@ export function isAllowedHost(host: string | null | undefined): boolean {
     return true;
   }
 
+  // Allow custom production domain
+  if (/^(www\.)?tbrscout\.com$/.test(normalized)) {
+    return true;
+  }
+
   // Check against explicit application environment variables if configured
   const envHosts = [
     process.env.NEXT_PUBLIC_APP_URL,

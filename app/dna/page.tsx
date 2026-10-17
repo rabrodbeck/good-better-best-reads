@@ -16,11 +16,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://goodbetterbestreads.vercel.app");
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://tbrscout.vercel.app");
 
   let archetype = "Reading DNA Card";
   let summary =
-    "Explore your verified literary archetype, dominant emotional tone, and preferred narrative pacing on GoodBetterBestReads.";
+    "Explore your verified literary archetype, dominant emotional tone, and preferred narrative pacing on TBRScout.";
 
   if (userParam) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -56,7 +56,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const title =
     archetype === "Reading DNA Card"
-      ? "Reading DNA Card | GoodBetterBestReads"
+      ? "Reading DNA Card | TBRScout"
       : `${archetype} | Reading DNA`;
 
   return {

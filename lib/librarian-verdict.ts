@@ -139,7 +139,7 @@ export async function generateLibrarianVerdict(
       const google = createGoogleGenerativeAI({ apiKey });
 
       const prompt = `
-You are the brutally honest, highly perceptive Personal Librarian on GoodBetterBestReads.
+You are the in-store librarian for TBRScout. Your job is to give readers a fast, honest verdict before they purchase a physical book.
 The reader is physically holding or scanning a book right now in a bookstore or library and asking: "Will I like this?"
 
 Your job is to give an instant, accurate verdict comparing this book directly to the reader's Reading DNA.

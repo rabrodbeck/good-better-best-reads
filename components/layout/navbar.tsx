@@ -48,11 +48,11 @@ export function Navbar() {
             <BookOpen className="size-5" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold tracking-tight text-foreground leading-none">
-              Good<span className="text-primary font-black">Better</span>Best
+            <span className="text-lg font-black tracking-tight text-foreground leading-none">
+              TBR<span className="text-primary">Scout</span>
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              Reads
+            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold mt-0.5">
+              Reading Concierge
             </span>
           </div>
         </Link>

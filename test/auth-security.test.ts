@@ -56,7 +56,10 @@ describe("OAuth Security & Safe Redirect Resolution (Issue #20)", () => {
       expect(isAllowedHost("127.0.0.1:3000")).toBe(true);
     });
 
-    it("approves official Vercel app domains", () => {
+    it("approves official Vercel app domains and TBRScout production domain", () => {
+      expect(isAllowedHost("tbrscout.vercel.app")).toBe(true);
+      expect(isAllowedHost("tbrscout.com")).toBe(true);
+      expect(isAllowedHost("www.tbrscout.com")).toBe(true);
       expect(isAllowedHost("goodbetterbestreads.vercel.app")).toBe(true);
       expect(isAllowedHost("good-better-best-reads-git-main-rabrodbeck.vercel.app")).toBe(true);
     });
@@ -72,16 +75,16 @@ describe("OAuth Security & Safe Redirect Resolution (Issue #20)", () => {
   });
 
   describe("resolveSafeRedirectUrl", () => {
-    const origin = "https://goodbetterbestreads.vercel.app";
+    const origin = "https://tbrscout.vercel.app";
 
     it("resolves safe destination using verified origin", () => {
       const result = resolveSafeRedirectUrl("/dna", origin);
-      expect(result).toBe("https://goodbetterbestreads.vercel.app/dna");
+      expect(result).toBe("https://tbrscout.vercel.app/dna");
     });
 
     it("rejects spoofed X-Forwarded-Host and falls back to origin", () => {
       const result = resolveSafeRedirectUrl("/library", origin, "evil.com");
-      expect(result).toBe("https://goodbetterbestreads.vercel.app/library");
+      expect(result).toBe("https://tbrscout.vercel.app/library");
       expect(result).not.toContain("evil.com");
     });
 
@@ -89,20 +92,20 @@ describe("OAuth Security & Safe Redirect Resolution (Issue #20)", () => {
       const result = resolveSafeRedirectUrl(
         "/library",
         origin,
-        "goodbetterbestreads.vercel.app",
+        "tbrscout.vercel.app",
         false
       );
-      expect(result).toBe("https://goodbetterbestreads.vercel.app/library");
+      expect(result).toBe("https://tbrscout.vercel.app/library");
     });
 
     it("sanitizes open redirect target even with trusted forwarded host", () => {
       const result = resolveSafeRedirectUrl(
         "//malicious-site.com",
         origin,
-        "goodbetterbestreads.vercel.app",
+        "tbrscout.vercel.app",
         false
       );
-      expect(result).toBe("https://goodbetterbestreads.vercel.app/library");
+      expect(result).toBe("https://tbrscout.vercel.app/library");
     });
   });
 });

@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "GoodBetterBestReads — AI Personal Librarian",
-    short_name: "GBBReads",
+    name: "TBRScout",
+    short_name: "TBRScout",
     description:
-      "Transform your reading history into an active Personal Librarian and shareable Reading DNA.",
+      "Scan barcodes, discover reading DNA, and scout books for your TBR stack.",
     start_url: "/",
     display: "standalone",
     background_color: "#070a12",

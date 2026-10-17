@@ -98,8 +98,8 @@ export function ReadingDnaClient() {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
-          title: `${profile?.archetype_name || "Reading DNA"} — GoodBetterBestReads`,
-          text: `Check out my verified Reading DNA on GoodBetterBestReads: ${profile?.archetype_name || "Reader Profile"}`,
+          title: `${profile?.archetype_name || "Reading DNA"} — TBRScout`,
+          text: `Check out my verified Reading DNA on TBRScout: ${profile?.archetype_name || "Reader Profile"}`,
           url,
         });
       } catch {

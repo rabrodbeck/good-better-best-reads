@@ -380,7 +380,7 @@ export async function fetchOpenLibraryCover(
     )}&author=${encodeURIComponent(author)}&fields=key,cover_i,editions&limit=3`;
 
     const res = await fetch(searchUrl, {
-      headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+      headers: { "User-Agent": "TBRScout/1.0 (contact@tbrscout.vercel.app)" },
       signal: AbortSignal.timeout(6000),
     });
 
@@ -403,7 +403,7 @@ export async function fetchOpenLibraryCover(
     if (doc.key) {
       const editionsUrl = `https://openlibrary.org${doc.key}/editions.json?limit=15`;
       const edRes = await fetch(editionsUrl, {
-        headers: { "User-Agent": "GoodBetterBestReads/1.0" },
+        headers: { "User-Agent": "TBRScout/1.0" },
         signal: AbortSignal.timeout(5000),
       });
       if (edRes.ok) {

@@ -132,7 +132,7 @@ export async function POST(req: Request) {
         const google = createGoogleGenerativeAI({ apiKey });
 
         const prompt = `
-You are the elite "Personal Shelf Concierge" on GoodBetterBestReads.
+You are the elite "Personal Shelf Concierge" on TBRScout.
 The reader has choice paralysis and is looking at their "Want to Read" shelf. Your goal is to select the TOP 3 absolute best matches from their own list.
 
 ### READER'S TASTE DNA:

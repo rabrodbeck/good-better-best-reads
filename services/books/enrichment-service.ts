@@ -100,7 +100,7 @@ export async function enrichBookDetails(
     if (isbn && isbn.length >= 10) {
       searchUrl = `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`;
       const res = await fetch(searchUrl, {
-        headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+        headers: { "User-Agent": "TBRScout/1.0 (contact@tbrscout.vercel.app)" },
       });
 
       if (res.ok) {
@@ -133,7 +133,7 @@ export async function enrichBookDetails(
     )}&fields=key,title,author_name,cover_i,language,editions,subject,number_of_pages_median,first_publish_year&limit=5`;
 
     let searchRes = await fetch(searchUrl, {
-      headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+      headers: { "User-Agent": "TBRScout/1.0 (contact@tbrscout.vercel.app)" },
       signal: AbortSignal.timeout(8000),
     });
 
@@ -145,7 +145,7 @@ export async function enrichBookDetails(
         `${cleanTitle} ${author}`
       )}&fields=key,title,author_name,cover_i,language,editions,subject,number_of_pages_median,first_publish_year&limit=5`;
       searchRes = await fetch(searchUrl, {
-        headers: { "User-Agent": "GoodBetterBestReads/1.0 (contact@goodbetterbestreads.com)" },
+        headers: { "User-Agent": "TBRScout/1.0 (contact@tbrscout.vercel.app)" },
         signal: AbortSignal.timeout(8000),
       });
       searchData = searchRes.ok ? await searchRes.json() : null;

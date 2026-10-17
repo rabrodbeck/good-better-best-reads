@@ -1,16 +1,16 @@
 /**
- * Service Worker for GoodBetterBestReads PWA (Issue #45)
- * Version: gbbr-pwa-v9
+ * Service Worker for TBRScout PWA
+ * Version: tbrscout-pwa-v1
  * 
  * Comprehensive Offline Support:
  * 1. Network-first with cache fallback for /api/library, /api/insights, /api/goals.
  * 2. Stale-while-revalidate for covers, icons, and static assets.
  * 3. Self-contained Offline Library Shell for HTML navigations when offline:
  *    Renders cached shelves, search, and filters directly from localStorage with ZERO external chunk dependencies!
- * 4. Automatic purge of older cache versions (v1 through v8).
+ * 4. Automatic purge of older cache versions.
  */
 
-const CACHE_NAME = "gbbr-pwa-v9";
+const CACHE_NAME = "tbrscout-pwa-v1";
 
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
@@ -213,7 +213,7 @@ const OFFLINE_HTML_SHELL = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My Shelves (Offline) | GoodBetterBestReads</title>
+  <title>My Shelves (Offline) | TBRScout</title>
   <style>
     :root {
       --bg: #09090b;
@@ -445,7 +445,7 @@ const OFFLINE_HTML_SHELL = `<!DOCTYPE html>
         <path d="M6 6h10"/>
         <path d="M6 10h10"/>
       </svg>
-      <span>GoodBetterBestReads</span>
+      <span>TBRScout</span>
     </div>
     <div class="badge-offline">
       <span style="width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>

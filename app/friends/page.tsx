@@ -486,7 +486,7 @@ export default function FriendsPage() {
         /* Active Invites Tab (Option B) */
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            These are invitation links you generated for friends who haven&apos;t joined GoodBetterBestReads yet. Once they sign up via your link, you will automatically be connected!
+            These are invitation links you generated for friends who haven&apos;t joined TBRScout yet. Once they sign up via your link, you will automatically be connected!
           </p>
 
           {pendingInvites.length === 0 ? (

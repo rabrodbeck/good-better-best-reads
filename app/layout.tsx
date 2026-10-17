@@ -25,42 +25,42 @@ export const viewport: Viewport = {
 const appBaseUrl =
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://goodbetterbestreads.vercel.app");
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://tbrscout.vercel.app");
 
 export const metadata: Metadata = {
   metadataBase: new URL(appBaseUrl),
   title: {
-    default: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
-    template: "%s | GoodBetterBestReads",
+    default: "TBRScout — Scout Your Next Read Before You Buy",
+    template: "%s | TBRScout",
   },
   description:
-    "Transform your Goodreads or StoryGraph reading history into an active Personal Librarian with semantic taste matching and a shareable Reading DNA card.",
-  applicationName: "GoodBetterBestReads",
+    "Your in-store reading concierge. Scan barcodes, match your taste DNA, and check series order before buying.",
+  applicationName: "TBRScout",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "GBBReads",
+    title: "TBRScout",
   },
   openGraph: {
     type: "website",
-    siteName: "GoodBetterBestReads",
-    title: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
+    siteName: "TBRScout",
+    title: "TBRScout — Scout Your Next Read Before You Buy",
     description:
-      "Transform your reading history into an active Personal Librarian and shareable Reading DNA.",
+      "Your in-store reading concierge. Scan barcodes, match your taste DNA, and scout books for your TBR stack.",
     images: [
       {
         url: "/api/og/reading-dna",
         width: 1200,
         height: 630,
-        alt: "GoodBetterBestReads — Reading DNA",
+        alt: "TBRScout — Reading DNA",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GoodBetterBestReads | AI Book Discovery & Reading DNA",
+    title: "TBRScout — Scout Your Next Read Before You Buy",
     description:
-      "Transform your reading history into an active Personal Librarian and shareable Reading DNA.",
+      "Your in-store reading concierge. Scan barcodes, match your taste DNA, and scout books for your TBR stack.",
     images: ["/api/og/reading-dna"],
   },
 };

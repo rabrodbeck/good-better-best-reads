@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
         status: 200,
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="goodbetterbestreads-library-${dateStr}.csv"`,
+          "Content-Disposition": `attachment; filename="tbrscout-library-${dateStr}.csv"`,
         },
       });
     }
@@ -193,7 +193,7 @@ export async function GET(request: NextRequest) {
       });
 
       const jsonPayload = {
-        app: "GoodBetterBestReads",
+        app: "TBRScout",
         exported_at: new Date().toISOString(),
         user: {
           id: userId,
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
         status: 200,
         headers: {
           "Content-Type": "application/json; charset=utf-8",
-          "Content-Disposition": `attachment; filename="goodbetterbestreads-library-${dateStr}.json"`,
+          "Content-Disposition": `attachment; filename="tbrscout-library-${dateStr}.json"`,
         },
       });
     }

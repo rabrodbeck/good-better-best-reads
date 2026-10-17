@@ -5,7 +5,7 @@ describe("Reading DNA generateMetadata", () => {
   const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://goodbetterbestreads.vercel.app";
+    process.env.NEXT_PUBLIC_APP_URL = "https://tbrscout.vercel.app";
   });
 
   afterEach(() => {
@@ -17,7 +17,7 @@ describe("Reading DNA generateMetadata", () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe("Reading DNA Card | GoodBetterBestReads");
+    expect(metadata.title).toBe("Reading DNA Card | TBRScout");
     expect(metadata.metadataBase).toBeDefined();
 
     const images = Array.isArray(metadata.openGraph?.images)
@@ -27,7 +27,7 @@ describe("Reading DNA generateMetadata", () => {
 
     const imageUrl = (images[0] as { url: string }).url;
     expect(imageUrl).toMatch(/^https?:\/\//);
-    expect(imageUrl).toBe("https://goodbetterbestreads.vercel.app/api/og/reading-dna");
+    expect(imageUrl).toBe("https://tbrscout.vercel.app/api/og/reading-dna");
     expect(imageUrl).not.toContain("userId=");
   });
 
@@ -42,11 +42,11 @@ describe("Reading DNA generateMetadata", () => {
     const imageUrl = (images[0] as { url: string }).url;
 
     expect(imageUrl).toMatch(/^https?:\/\//);
-    expect(imageUrl).toBe("https://goodbetterbestreads.vercel.app/api/og/reading-dna?userId=usr_abc123");
-    expect(metadata.openGraph?.url).toBe("https://goodbetterbestreads.vercel.app/dna?user=usr_abc123");
+    expect(imageUrl).toBe("https://tbrscout.vercel.app/api/og/reading-dna?userId=usr_abc123");
+    expect(metadata.openGraph?.url).toBe("https://tbrscout.vercel.app/dna?user=usr_abc123");
 
     const twitterImages = metadata.twitter?.images as string[];
-    expect(twitterImages[0]).toBe("https://goodbetterbestreads.vercel.app/api/og/reading-dna?userId=usr_abc123");
+    expect(twitterImages[0]).toBe("https://tbrscout.vercel.app/api/og/reading-dna?userId=usr_abc123");
   });
 
   it("handles userId search parameter synonymously", async () => {
@@ -59,6 +59,6 @@ describe("Reading DNA generateMetadata", () => {
       : [];
     const imageUrl = (images[0] as { url: string }).url;
 
-    expect(imageUrl).toBe("https://goodbetterbestreads.vercel.app/api/og/reading-dna?userId=usr_xyz789");
+    expect(imageUrl).toBe("https://tbrscout.vercel.app/api/og/reading-dna?userId=usr_xyz789");
   });
 });

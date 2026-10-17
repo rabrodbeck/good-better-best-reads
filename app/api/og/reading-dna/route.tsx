@@ -129,11 +129,11 @@ export async function GET(req: Request) {
                   fontSize: "22px",
                 }}
               >
-                G
+                T
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <span style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "-0.5px" }}>
-                  GoodBetterBest<span style={{ color: "#10b981" }}>Reads</span>
+                  TBR<span style={{ color: "#10b981" }}>Scout</span>
                 </span>
                 <span
                   style={{
@@ -380,7 +380,7 @@ export async function GET(req: Request) {
             }}
           >
             <span>AI Taste Vector: 768 Dimensions (Gemini Matryoshka)</span>
-            <span style={{ fontWeight: 600, color: "#9ca3af" }}>goodbetterbestreads.vercel.app</span>
+            <span style={{ fontWeight: 600, color: "#9ca3af" }}>tbrscout.vercel.app</span>
           </div>
         </div>
       ),

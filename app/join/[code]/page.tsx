@@ -125,7 +125,7 @@ export default function JoinInvitePage() {
           </p>
           <div className="mt-6 flex justify-center">
             <Button onClick={() => router.push("/")} variant="outline" size="sm">
-              Go to GoodBetterBestReads
+              Go to TBRScout
             </Button>
           </div>
         </Card>

@@ -45,7 +45,7 @@ export function ExportModal({
       const a = document.createElement("a");
       a.href = url;
       const dateStr = new Date().toISOString().split("T")[0];
-      a.download = `goodbetterbestreads-library-${dateStr}.${format}`;
+      a.download = `tbrscout-library-${dateStr}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

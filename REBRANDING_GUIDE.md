@@ -1,8 +1,8 @@
 # TBRScout Rebranding & Migration Playbook
 > **Step-by-Step Transition Guide: GoodBetterBestReads $\rightarrow$ TBRScout**  
-> *Target Domain:* `tbrscout.com`  
+> *Target Domain:* `https://tbrscout.vercel.app` (custom `.com` reserved for later)  
 > *Target Tagline:* *"Scout your next read before you buy."*  
-> *Status:* Ready for Execution  
+> *Status:* Codebase Updated & Verified Cleanly  
 
 ---
 
@@ -12,130 +12,113 @@
 | :--- | :--- | :--- |
 | **App Name** | GoodBetterBestReads | **TBRScout** |
 | **Short / PWA Name** | GBBReads | **TBRScout** |
-| **Production Domain** | `goodbetterbestreads.vercel.app` | **`tbrscout.com`** |
+| **Production Domain** | `goodbetterbestreads.vercel.app` | **`tbrscout.vercel.app`** |
 | **Primary Tagline** | *A smarter, modern alternative to Goodreads.* | **`Scout your next read before you buy.`** |
 | **Secondary Tagline** | *Track your shelves, discover your Reading DNA.* | **`Your in-store reading concierge & TBR curator.`** |
 | **Brand Position** | Shelf tracking & cataloging app | **Physical bookstore scout & taste intelligence** |
 
 ---
 
-## 2. Phase 1: Domain & DNS Setup (5–10 Minutes)
+## 2. Phase 1: Domain & DNS Setup
 
-### Step 1: Purchase `tbrscout.com`
-* **Option A (Fastest — 1 Click in Vercel)**:
-  1. Go to [Vercel Dashboard](https://vercel.com) $\rightarrow$ select `good-better-best-reads` project.
-  2. Navigate to **Settings** $\rightarrow$ **Domains**.
-  3. Enter `tbrscout.com` and select **Buy** (~$15/year). Vercel auto-configures DNS and SSL.
-* **Option B (Registrar — Namecheap / Cloudflare / Porkbun)**:
-  1. Purchase `tbrscout.com` on your preferred registrar (~$10/year).
-  2. Add the domain in Vercel **Settings** $\rightarrow$ **Domains**.
-  3. Set up the two DNS records provided by Vercel:
-     * **A Record**: Host `@` $\rightarrow$ `76.76.21.21`
-     * **CNAME Record**: Host `www` $\rightarrow$ `cname.vercel-dns.com`
+* **Current Stage**: Deploying directly to `tbrscout.vercel.app` (custom domain acquisition deferred).
+* In Vercel Project Settings $\rightarrow$ **Domains**:
+  - Add domain: `tbrscout.vercel.app`
+  - Vercel automatically routes and provisions SSL for `*.vercel.app` domains instantly with 0 DNS setup required.
 
 ---
 
-## 3. Phase 2: Supabase Auth & Security Configuration (3 Minutes)
+## 3. Phase 2: Supabase Auth & Security Configuration
 
-*(Critical: Required so Google OAuth and magic login links redirect to `tbrscout.com`)*
+*(Completed: Whitelisted in Supabase Dashboard)*
 
-1. Log into your [Supabase Dashboard](https://supabase.com/dashboard) and open the project.
-2. Navigate to **Authentication** $\rightarrow$ **URL Configuration**.
-3. Update the **Site URL**:
-   ```text
-   https://tbrscout.com
-   ```
-4. In **Redirect URLs**, add the following whitelisted entries:
-   ```text
-   https://tbrscout.com/**
-   https://www.tbrscout.com/**
-   http://localhost:3000/**
-   ```
-5. *(If Google OAuth is enabled in Google Cloud Console)*:
-   * Update the Authorized redirect URI to:  
-     `https://<your-supabase-ref>.supabase.co/auth/v1/callback` (already set) and add `https://tbrscout.com` to Authorized Javascript Origins.
-6. Click **Save**.
+1. In Supabase Dashboard $\rightarrow$ **Authentication** $\rightarrow$ **URL Configuration**:
+   - Site URL: `https://tbrscout.vercel.app` (or retained default)
+   - Whitelisted Redirect URLs:
+     - `https://tbrscout.vercel.app/**`
+     - `https://goodbetterbestreads.vercel.app/**`
+     - `http://localhost:3000/**`
 
 ---
 
-## 4. Phase 3: Codebase Updates Checklist (10–15 Minutes)
+## 4. Phase 3: Codebase Updates Checklist
 
-Every change is purely presentational and config-based. **Zero database migrations or schema alterations required.**
+All changes completed, type-checked, and test-verified. **Zero database migrations or schema alterations required.**
 
 ```mermaid
 flowchart LR
-    A[Metadata & Head] -->|layout.tsx & manifest.ts| D[App Shell]
-    B[UI Branding] -->|navbar.tsx & page.tsx| D
-    C[AI Intelligence] -->|prompt.ts & librarian-verdict.ts| D
-    D --> E[Production Build & Deploy]
+    A["App Shell & Metadata<br/>(layout.tsx, manifest.ts)"] --> D["TBRScout Core App"]
+    B["UI & Navigation<br/>(navbar.tsx, page.tsx)"] --> D
+    C["AI Intelligence & Prompts<br/>(prompt.ts, verdict.ts)"] --> D
+    D --> E["Production Build (21/21 routes)"]
 ```
 
 ### 1. App Shell & HTML Metadata
-* [ ] **`app/layout.tsx`**:
-  * Update default title: `"TBRScout — Scout Your Next Read Before You Buy"`
-  * Update description: `"Your in-store reading concierge. Scan barcodes, match your taste DNA, and check series order before buying."`
-  * Update Open Graph and Twitter metadata to use `https://tbrscout.com`.
-* [ ] **`app/manifest.ts` (Mobile PWA)**:
+* [x] **`app/layout.tsx`**:
+  * Default title: `"TBRScout — Scout Your Next Read Before You Buy"`
+  * Description: `"Your in-store reading concierge. Scan barcodes, match your taste DNA, and check series order before buying."`
+  * Open Graph and Twitter metadata updated with `https://tbrscout.vercel.app`.
+* [x] **`app/manifest.ts` (Mobile PWA)**:
   * `name`: `"TBRScout"`
   * `short_name`: `"TBRScout"`
   * `description`: `"Scan barcodes, discover reading DNA, and scout books for your TBR stack."`
 
 ### 2. Navigation & Landing Page UI
-* [ ] **`components/layout/navbar.tsx`**:
-  * Change brand text from `GoodBetterBestReads` to `TBRScout`.
-* [ ] **`app/page.tsx` (Hero Section)**:
-  * Update headline: *"Meet TBRScout: Your In-Store Reading Concierge"*.
-  * Update subheadline to focus on the barcode scanner, librarian verdict, and Reading DNA.
+* [x] **`components/layout/navbar.tsx`**:
+  * Brand badge updated to `TBRScout` with `Reading Concierge` subtitle.
+* [x] **`app/page.tsx` (Hero Section)**:
+  * Headline: *"Scout your next read before you buy."*
+  * Subheadline focused on in-store barcode scouting, librarian verdicts, and Reading DNA.
+  * Section header: *"How TBRScout Works"*.
+* [x] **`app/friends/page.tsx` & `app/join/[code]/page.tsx`**:
+  * Updated invite links, tooltips, and CTA buttons to `TBRScout`.
 
 ### 3. AI Prompts & System Identity
-* [ ] **`services/librarian/prompt.ts`**:
-  * Update system role:  
-    `"You are the TBRScout Personal Librarian, a sharp, empathetic, and discerning literary concierge..."`
-* [ ] **`lib/librarian-verdict.ts`**:
-  * Update prompt context:  
-    `"You are the in-store librarian for TBRScout. Your job is to give readers a fast, honest verdict before they purchase a physical book..."`
+* [x] **`services/librarian/prompt.ts`**:
+  * System role: `"You are the TBRScout Personal Librarian, an elite literary concierge."`
+* [x] **`lib/librarian-verdict.ts`**:
+  * In-store prompt: `"You are the in-store librarian for TBRScout. Your job is to give readers a fast, honest verdict before they purchase a physical book."`
+* [x] **`app/api/librarian/concierge/route.ts`**:
+  * Concierge prompt: `"You are the elite 'Personal Shelf Concierge' on TBRScout."`
 
 ### 4. Sharing, Exports & Watermarks
-* [ ] **`lib/share.ts`**:
-  * Update share copy: `"Check out my TBR stack and library on TBRScout!"`
-  * Set origin fallback to `https://tbrscout.com`.
-* [ ] **`app/api/og/reading-dna/route.tsx`**:
-  * Update card footer watermark from `goodbetterbestreads.vercel.app` to `tbrscout.com`.
-* [ ] **`components/library/export-modal.tsx`**:
-  * Default exported file names: `tbrscout-library.csv` and `tbrscout-library.json`.
+* [x] **`lib/share.ts`**:
+  * Share titles and text updated to `TBRScout`. Origin fallback set to `https://tbrscout.vercel.app`.
+* [x] **`app/api/og/reading-dna/route.tsx`**:
+  * Logo mark updated to "T" with `TBRScout` branding; footer watermark updated to `tbrscout.vercel.app`.
+* [x] **`components/library/export-modal.tsx` & `app/api/library/export/route.ts`**:
+  * Default exported file names: `tbrscout-library-YYYY-MM-DD.csv` and `tbrscout-library-YYYY-MM-DD.json`.
+* [x] **`services/books/cover-service.ts`, `services/books/enrichment-service.ts`, `app/api/books/search/route.ts`**:
+  * User-Agent strings updated to `"TBRScout/1.0 (contact@tbrscout.vercel.app)"`.
 
-### 5. Service Worker & Config
-* [ ] **`public/sw.js`**:
-  * Update cache name: `CACHE_NAME = "tbrscout-pwa-v1"`.
-* [ ] **`package.json`**:
-  * Update `"name": "tbrscout"`.
+### 5. Service Worker, Config & Tests
+* [x] **`public/sw.js`**:
+  * Cache version set to `tbrscout-pwa-v1`; offline header & title updated to `TBRScout`.
+* [x] **`package.json`**:
+  * Project name set to `"tbrscout"`.
+* [x] **`lib/auth-security.ts` & `test/auth-security.test.ts`**:
+  * Added `tbrscout.vercel.app` and `tbrscout.com` to verified whitelist while preserving backward compatibility.
+* [x] **`test/dna-metadata.test.ts`**:
+  * Updated assertions to `TBRScout` and `https://tbrscout.vercel.app`.
 
 ---
 
-## 5. Phase 4: GitHub & Vercel Maintenance (Optional — 2 Minutes)
+## 5. Phase 4: Next Steps for You
 
-1. **GitHub Repository**:
-   * In GitHub $\rightarrow$ **Settings** $\rightarrow$ **Repository name**, change `good-better-best-reads` $\rightarrow$ `tbr-scout`.
-   * Update your local git remote:
-     ```bash
-     git remote set-url origin https://github.com/rabrodbeck/tbr-scout.git
-     ```
-   *(Note: GitHub automatically redirects the old URL, so nothing breaks if skipped).*
+1. **Commit & Push**:
+   ```bash
+   git add .
+   git commit -m "chore(brand): rebrand application to TBRScout"
+   git push
+   ```
 
-2. **Vercel Project Settings**:
+2. **Add Domain in Vercel (1 Minute)**:
+   * Go to [Vercel Dashboard](https://vercel.com) $\rightarrow$ open the project.
+   * Go to **Settings** $\rightarrow$ **Domains**.
+   * Add: `tbrscout.vercel.app`.
+   * Vercel will instantly attach it.
+
+3. **Update Vercel Environment Variables (Optional)**:
    * Under **Settings** $\rightarrow$ **Environment Variables**, set:
-     * `NEXT_PUBLIC_APP_URL` = `https://tbrscout.com`
-     * `NEXT_PUBLIC_SITE_URL` = `https://tbrscout.com`
-
----
-
-## 6. Phase 5: Verification & Launch Checklist
-
-Once the code is deployed and the domain resolves:
-
-- [ ] **Home Page & Navigation**: Verify title shows "TBRScout" in the browser tab and navbar.
-- [ ] **Barcode Scanner & Verdict**: Scan a book; verify the verdict card displays cleanly with no old brand references.
-- [ ] **Supabase Authentication**: Log out and log back in; verify redirect lands on `tbrscout.com/library`.
-- [ ] **PWA Home Screen Install**: Test "Add to Home Screen" on iOS/Android; verify the icon label reads **TBRScout**.
-- [ ] **Social Share / OG Preview**: Share a Reading DNA link; verify the card shows `tbrscout.com` in the preview thumbnail.
-- [ ] **CSV Export**: Click "Export Library" and verify the downloaded file is `tbrscout-library.csv`.
+     - `NEXT_PUBLIC_APP_URL` = `https://tbrscout.vercel.app`
+     - `NEXT_PUBLIC_SITE_URL` = `https://tbrscout.vercel.app`

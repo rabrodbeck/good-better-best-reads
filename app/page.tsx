@@ -7,6 +7,7 @@ import {
   BookMarked,
   ShieldCheck,
   Zap,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,36 +35,40 @@ export default function HomePage() {
             className="mb-6 px-3 py-1 text-xs sm:text-sm font-medium gap-1.5 shadow-xs"
           >
             <Sparkles className="size-3.5 text-primary" />
-            <span>AI-Powered Book Discovery & Taste Profiling</span>
+            <span>Your In-Store Reading Concierge & TBR Curator</span>
           </Badge>
 
           {/* Main Title */}
           <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
-            Good, better, best. <br />
+            Scout your next read <br />
             <span className="bg-linear-to-r from-primary via-primary/80 to-emerald-500 bg-clip-text text-transparent">
-              Never let your reading list rest.
+              before you buy.
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="mt-6 max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Transform years of latent reading history into an active Personal
-            Librarian. Discover titles that match your exact tropes, pacing, and
-            emotional tone—moving far beyond whole-star ratings and generic
-            bestseller lists.
+            Scan barcodes right in the bookstore aisle, match books against your unique Reading DNA, and get instant librarian verdicts so you never regret a purchase.
           </p>
 
           {/* CTAs */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/import">
+            <Link href="/scan">
               <Button size="lg" className="gap-2 shadow-sm font-semibold">
-                <UploadCloud className="size-5" />
+                <Camera className="size-5" />
+                <span>Scan Barcode</span>
+              </Button>
+            </Link>
+
+            <Link href="/import">
+              <Button variant="outline" size="lg" className="gap-2">
+                <UploadCloud className="size-5 text-primary" />
                 <span>Import Goodreads / StoryGraph</span>
               </Button>
             </Link>
 
             <Link href="/chat">
-              <Button variant="outline" size="lg" className="gap-2">
+              <Button variant="ghost" size="lg" className="gap-2">
                 <Sparkles className="size-5 text-primary" />
                 <span>Ask the Librarian</span>
                 <ArrowRight className="size-4" />
@@ -100,7 +105,7 @@ export default function HomePage() {
       <section className="container mx-auto max-w-6xl px-4 py-16 sm:px-6 border-t border-border/40">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            How GoodBetterBestReads Works
+            How TBRScout Works
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             A 100% free-tier architecture designed for readers, by voracious

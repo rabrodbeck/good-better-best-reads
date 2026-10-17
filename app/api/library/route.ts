@@ -258,7 +258,7 @@ export async function POST(request: Request) {
     await supabase.from("profiles").upsert(
       {
         id: userId,
-        email: userEmail || "reader@goodbetterbestreads.local",
+        email: userEmail || "reader@tbrscout.local",
         display_name: userEmail?.split("@")[0] || "Reader",
       },
       { onConflict: "id", ignoreDuplicates: true }
@@ -296,7 +296,7 @@ export async function POST(request: Request) {
       const cleanWork = open_library_key.startsWith("/works/") ? open_library_key : `/works/${open_library_key}`;
       try {
         const workRes = await fetch(`https://openlibrary.org${cleanWork}.json`, {
-          headers: { "User-Agent": "GoodBetterBestReads/1.0" },
+          headers: { "User-Agent": "TBRScout/1.0" },
           signal: AbortSignal.timeout(4000),
         });
         if (workRes.ok) {
