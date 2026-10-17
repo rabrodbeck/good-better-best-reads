@@ -114,8 +114,8 @@ The PostgreSQL database relies on four primary tables and an HNSW vector index:
 
 ### 1. Clone Repository & Install Dependencies
 ```bash
-git clone https://github.com/brodbeck85/good-better-best-reads.git
-cd good-better-best-reads
+git clone https://github.com/rabrodbeck/tbr-scout.git
+cd tbr-scout
 npm install
 ```
 

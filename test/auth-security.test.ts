@@ -60,6 +60,7 @@ describe("OAuth Security & Safe Redirect Resolution (Issue #20)", () => {
       expect(isAllowedHost("tbrscout.vercel.app")).toBe(true);
       expect(isAllowedHost("tbrscout.com")).toBe(true);
       expect(isAllowedHost("www.tbrscout.com")).toBe(true);
+      expect(isAllowedHost("tbr-scout-git-main-rabrodbeck.vercel.app")).toBe(true);
       expect(isAllowedHost("goodbetterbestreads.vercel.app")).toBe(true);
       expect(isAllowedHost("good-better-best-reads-git-main-rabrodbeck.vercel.app")).toBe(true);
     });

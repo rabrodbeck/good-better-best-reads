@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 
 const GH_EXE = `"C:\\Program Files\\GitHub CLI\\gh.exe"`;
-const REPO = "rabrodbeck/good-better-best-reads";
+const REPO = "rabrodbeck/tbr-scout";
 const PROJECT_NUMBER = "1";
 const PROJECT_ID = "PVT_kwHOCGDCW84Bl1rJ";
 const OWNER = "rabrodbeck";
