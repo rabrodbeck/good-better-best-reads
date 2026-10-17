@@ -1,15 +1,15 @@
-# GoodBetterBestReads: Project Specification & Architecture Brief
+# TBRScout: Project Specification & Architecture Brief
 
-> *"Good, better, best. Never let it rest. 'Til your good gets better and your better gets best!"*  
-> — Chicago Bears team motto & product philosophy.
+> *"Scout your next read before you buy."*  
+> — Physical bookstore scout & reading taste intelligence.
 
 ---
 
 ## 1. Executive Summary & Vision
 
-**GoodBetterBestReads** is an AI-powered book discovery and taste-profiling web/PWA application. It transforms years of latent reading history (from Goodreads or StoryGraph CSV exports) into an active, intelligent "Personal Librarian" conversational companion.
+**TBRScout** is an AI-powered in-store reading concierge, taste-profiling, and barcode scanning web/PWA application. It transforms years of latent reading history (from Goodreads or StoryGraph CSV exports) into an active, intelligent "Personal Librarian" conversational companion.
 
-Instead of generic bestseller lists, whole-star ratings, or rigid keyword filters, GoodBetterBestReads uses semantic vector embeddings and large language models (LLMs) to understand the *nuances, tropes, pacing, and emotional tone* of a reader's preferences.
+Instead of generic bestseller lists, whole-star ratings, or rigid keyword filters, TBRScout uses semantic vector embeddings and large language models (LLMs) to understand the *nuances, tropes, pacing, and emotional tone* of a reader's preferences.
 
 ---
 
@@ -121,7 +121,7 @@ A unified, 100% TypeScript full-stack architecture running entirely on free-tier
 * **Google AI Studio (Gemini 1.5 Flash):** $0 (Free tier for development & beta testing).
 * **Hugging Face:** $0 (Free access to open-source book datasets).
 * **Firebase:** $0 (Reserved for future mobile push notifications & analytics).
-* **Domain Name (Optional):** Start with `goodbetterbestreads.vercel.app` for free; link a custom domain (`.app` / `.com`) later in 2 minutes.
+* **Domain Name (Optional):** Start with `tbrscout.vercel.app` for free; link a custom domain (`.app` / `.com`) later in 2 minutes.
 
 **Total Cash Outlay to Build & Beta Test: $0.00**
 

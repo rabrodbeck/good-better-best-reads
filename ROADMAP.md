@@ -1,12 +1,12 @@
-# GoodBetterBestReads — Strategic Feature Roadmap
+# TBRScout — Strategic Feature Roadmap
 
-This document outlines the prioritized feature roadmap for GoodBetterBestReads, organized into distinct phases based on architectural leverage, user impact, and everyday usability.
+This document outlines the prioritized feature roadmap for TBRScout, organized into distinct phases based on architectural leverage, user impact, and everyday usability.
 
 ---
 
 ## 🎯 Vision & North Star
 
-Transform **GoodBetterBestReads** from a passive Goodreads library viewer into an **autonomous, social, and AI-powered reading companion**:
+Transform **TBRScout** into an **autonomous, social, and AI-powered in-store reading concierge & companion**:
 1. **Self-Sufficient**: Add, rate, move, and discover books without needing to export or upload CSV files.
 2. **Social & Connected**: Discover books through taste compatibility with friends and family (like your spouse and reading group).
 3. **Intelligent & Contextual**: Leverage your Gemini Reading DNA and library embeddings to eliminate choice paralysis and recommend what to read next.

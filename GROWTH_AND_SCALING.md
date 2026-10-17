@@ -1,4 +1,4 @@
-# GoodBetterBestReads: Growth, Distribution & Capacity Blueprint
+# TBRScout: Growth, Distribution & Capacity Blueprint
 > **Executive Strategy Document**  
 > *Author:* Senior Architecture & Product Advisory  
 > *Date:* October 2026  
@@ -11,7 +11,7 @@
 ### The Honest Truth About the App
 Building a Goodreads competitor is notoriously difficult. Thousands of developers have tried building "Goodreads but with a modern UI," and almost all of them die quietly because users' reading streaks, friend networks, and shelf history on Goodreads represent high switching friction.
 
-However, **GoodBetterBestReads has two distinct, defensible advantages** that standard book cataloging apps lack:
+However, **TBRScout has two distinct, defensible advantages** that standard book cataloging apps lack:
 1. **The In-Store Physical Barcode Scanner & Series Alert**: Standing in a bookstore, scanning a physical book's barcode, and getting an immediate AI verdict (*"90% alignment with your taste, BUT it's Book 2 in a series—start with Book 1"*) solves an acute, physical shopping dilemma that neither Goodreads nor StoryGraph addresses.
 2. **The Reading DNA Visual Identity**: Readers—especially romance, fantasy, and sci-fi fans—love identifying with tropes, pacing styles, and literary archetypes. It functions as a personal trophy similar to *Spotify Wrapped*.
 
@@ -64,7 +64,7 @@ BookTok is the highest-converting organic channel for literature, driven almost 
 * **Content Hook 2 (The Taste Diagnostic)**:
   * *Text on screen*: *"Told my AI librarian my 3 favorite books and it read me for filth."*
   * *Action*: Show the Reading DNA breakdown: *"Enemies-to-lovers addict with zero patience for slow-burn worldbuilding."*
-* **Cadence**: 2–3 short videos per week on a dedicated `@goodbetterbestreads` account.
+* **Cadence**: 2–3 short videos per week on a dedicated `@tbrscout` account.
 
 ---
 
@@ -75,7 +75,7 @@ Stranger conversion rates drop by 80% if registration is required before value d
 * **The Flow**:
   1. User selects 3 books they loved and 1 book they hated.
   2. Selects 3 sliders (Fast-paced vs. Atmospheric, Plot-driven vs. Character-driven, Cozy vs. Dark).
-  3. The app generates an aesthetic, downloadable **Reading DNA Card** (PNG) with your logo and URL: `goodbetterbestreads.com`.
+  3. The app generates an aesthetic, downloadable **Reading DNA Card** (PNG) with your logo and URL: `tbrscout.vercel.app`.
   4. Prompt at the bottom: *"Want this AI to check your books while shopping? Create a free account."*
 * **The Growth Loop**: Readers share their DNA card on Instagram Stories and Twitter to compare with friends, driving zero-cost organic referral traffic.
 
@@ -169,7 +169,7 @@ Here is how the current architecture performs under scale, where each bottleneck
 
 ### Phase B: Zero-Friction Top of Funnel
 - [ ] Build standalone, un-gated `/quiz` page generating downloadable Reading DNA cards.
-- [ ] Add watermark URL (`goodbetterbestreads.com`) to generated DNA graphics.
+- [x] Add watermark URL (`tbrscout.vercel.app`) to generated DNA graphics.
 
 ### Phase C: Anonymous Marketing Execution
 - [ ] Record 3 short bookstore POV clips showing the barcode scanner and series alert.

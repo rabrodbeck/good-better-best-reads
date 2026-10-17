@@ -20,12 +20,12 @@ async function main() {
   }
 
   const dummyUser = users.users.find(
-    (u) => u.email === "ryan@goodbetterbestreads.local"
+    (u) => u.email === "ryan@tbrscout.local" || u.email === "ryan@goodbetterbestreads.local"
   );
   const googleUser = users.users.find((u) => u.email === "rbrodbeck@gmail.com");
 
   if (!dummyUser) {
-    console.error("Could not find dummy user (ryan@goodbetterbestreads.local)");
+    console.error("Could not find dummy user (ryan@tbrscout.local)");
     process.exit(1);
   }
 
